@@ -40,6 +40,29 @@ const store = {
 
 let fixtures = store.get('league:fixtures',defaultFixtures.map(f=>({...f})));
 function saveFixtures(){store.set('league:fixtures',fixtures)}
+function migrateDoubleGoalRuleToLastTwoMinutes(){
+  fixtures.forEach(f=>{
+    const key=`match:${f.id}`,s=store.get(key,null);
+    if(!s||!Array.isArray(s.events)||s.doubleGoalRuleVersion===3)return;
+    let home=0,away=0;
+    s.events.forEach(e=>{
+      const realValue=Number(e.realValue ?? 1);
+      const isSecondHalf=Number(e.half)===2;
+      const isLastTwoMinutes=isSecondHalf&&Number(e.minute)>=19;
+      const competitionValue=isLastTwoMinutes?2:1;
+      e.realValue=realValue;
+      e.competitionValue=competitionValue;
+      e.value=competitionValue;
+      e.doubleGoal=competitionValue===2;
+      if(e.side==='home')home+=competitionValue;else if(e.side==='away')away+=competitionValue;
+      e.homeScoreAfter=home;e.awayScoreAfter=away;e.scoreAfter=`${home}-${away}`;
+    });
+    s.homeScore=home;s.awayScore=away;
+    s.doubleGoalRuleVersion=3;
+    store.set(key,s);
+  });
+}
+migrateDoubleGoalRuleToLastTwoMinutes();
 function roundNumbers(){return [...new Set(fixtures.map(f=>Number(f.round)).filter(Number.isFinite))].sort((a,b)=>a-b)}
 function restingTeamsForRound(round){const playing=new Set(fixtures.filter(f=>Number(f.round)===Number(round)).flatMap(f=>[f.home,f.away]));return Object.keys(teams).filter(k=>!playing.has(k))}
 function roundRestText(round){const rest=restingTeamsForRound(round);if(rest.length===1)return `Descansa: ${teams[rest[0]].name}`;if(rest.length===0)return 'Descansa: ninguno';return `Sin jugar: ${rest.map(k=>teams[k].name).join(', ')}`}
@@ -286,8 +309,8 @@ function renderRounds(){
 function openAvailability(matchId){if(!findFixture(matchId))return;$('#availabilityMatch').value=matchId;renderAvailability();navigate('disponibilidad')}
 
 function playerStats(){
-  const stats={}; allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,assists:0,mvps:0});
-  fixtures.forEach(f=>{const s=getStateFor(f.id);(s.events||[]).forEach(e=>{if(stats[e.scorer])stats[e.scorer].goals+=Number(e.value||1);if(e.assist&&stats[e.assist])stats[e.assist].assists+=1});if(s.mvp&&stats[s.mvp])stats[s.mvp].mvps+=1});
+  const stats={}; allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,realGoals:0,assists:0,mvps:0});
+  fixtures.forEach(f=>{const s=getStateFor(f.id);(s.events||[]).forEach(e=>{if(stats[e.scorer]){stats[e.scorer].goals+=Number(e.competitionValue ?? e.value ?? 1);stats[e.scorer].realGoals+=Number(e.realValue ?? 1)}if(e.assist&&stats[e.assist])stats[e.assist].assists+=1});if(s.mvp&&stats[s.mvp])stats[s.mvp].mvps+=1});
   return stats;
 }
 function sortedBy(field){return Object.values(playerStats()).sort((a,b)=>b[field]-a[field]||a.name.localeCompare(b.name,'es'))}
@@ -408,7 +431,7 @@ function renderTeams(){
 function rankingPlayerCell(p){return `<div class="ranking-player-cell">${playerAvatarHtml(p.name,'ranking-avatar')}<div>${playerProfileButton(p.name)}</div></div>`}
 function renderRankings(){
   const scorers=sortedBy('goals'),assists=sortedBy('assists'),mvps=sortedBy('mvps');
-  $('#scorersBody').innerHTML=scorers.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${p.team}</td><td class="points emoji-stat">⚽ ${p.goals}</td></tr>`).join('');
+  $('#scorersBody').innerHTML=scorers.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${p.team}</td><td class="points emoji-stat">⚽ ${p.goals}</td><td class="emoji-stat">🥅 ${p.realGoals}</td></tr>`).join('');
   $('#assistsBody').innerHTML=assists.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${p.team}</td><td class="points emoji-stat">🅰️ ${p.assists}</td></tr>`).join('');
   if($('#mvpsBody'))$('#mvpsBody').innerHTML=mvps.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${p.team}</td><td class="points emoji-stat">⭐ ${p.mvps}</td></tr>`).join('');
   const combined=Object.values(playerStats()).map(p=>({...p,total:p.goals+p.assists+p.mvps})).sort((a,b)=>b.total-a.total||b.goals-a.goals||b.assists-a.assists||b.mvps-a.mvps||a.name.localeCompare(b.name,'es'));
@@ -431,7 +454,7 @@ function renderHomeDashboard(){
   $('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
   const topG=sortedBy('goals')[0],topA=sortedBy('assists')[0],topM=sortedBy('mvps')[0];
   const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
-  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.textContent=n?p.name:'—';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=`${icon} ${n} ${label}`});
+  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.textContent=n?p.name:'—';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
   renderNextMatchCard();
 }
 function homeMatchHtml(f,finished){const s=getStateFor(f.id);return `<div class="home-match"><div class="club"><img src="${teams[f.home].logo}" alt=""><div><strong>${teams[f.home].name}</strong><small>Jornada ${f.round}</small></div></div><strong>${finished?`${s.homeScore}–${s.awayScore}`:'VS'}</strong><div class="club"><div><strong>${teams[f.away].name}</strong><small>${finished?'Finalizado':availabilityStatus(f.id)}</small></div><img src="${teams[f.away].logo}" alt=""></div></div>`}
@@ -458,15 +481,16 @@ function saveMatchState(s){store.set(matchStateKey(),s)}
 function allMatchPlayers(f){return [...playersOf(f.home),...playersOf(f.away)]}
 function timeText(sec){const m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
 function elapsedMinute(){return Math.min(20,Math.floor((1200-live.remaining)/60)+1)}
-function isSpecial(){return live.remaining<=120&&live.remaining>=0}
-function updateSpecialRule(){const el=$('#specialRule');el.className='special-rule';if(!isSpecial()){el.textContent='Tiempo normal';return}if(live.half===1){el.classList.add('dice');el.textContent='🎲 Dado Kings League activo'}else{el.classList.add('double');el.textContent='⚡ GOL DOBLE activo'}}
+function isDiceActive(){return live.half===1&&live.remaining<=120&&live.remaining>=0}
+function isDoubleGoalActive(){return live.half===2&&live.remaining<=120&&live.remaining>=0}
+function updateSpecialRule(){const el=$('#specialRule');el.className='special-rule';if(isDiceActive()){el.classList.add('dice');el.textContent='🎲 Dado Kings League activo';return}if(isDoubleGoalActive()){el.classList.add('double');el.textContent='⚡ GOL DOBLE activo · últimos 2 minutos';return}el.textContent='Tiempo normal'}
 function renderLive(){
   const f=findFixture(live.matchId),s=getMatchState(),editable=canManageMatch(live.matchId);if(!f)return;
   $('#liveEyebrow').textContent=editable?'MODO ÁRBITRO':'EN DIRECTO';$('#liveDescription').textContent=editable?'Tienes permisos para gestionar este partido.':'Sigue el marcador, el tiempo y los eventos. Solo el árbitro asignado puede editar.';
   $('#liveHalfControls').hidden=!editable;$('#liveTimerActions').hidden=!editable;$('#liveEventActions').hidden=!editable;$('#liveMvpPanel').hidden=!editable;$$('.live-editor-control').forEach(el=>el.hidden=!editable);
   $('#timer').textContent=timeText(live.remaining);$('#homeName').textContent=teams[f.home].name;$('#awayName').textContent=teams[f.away].name;$('#homeLogo').src=teams[f.home].logo;$('#awayLogo').src=teams[f.away].logo;$('#homeScore').textContent=s.homeScore;$('#awayScore').textContent=s.awayScore;
   $('#half1Btn').classList.toggle('active',live.half===1);$('#half2Btn').classList.toggle('active',live.half===2);const liveStatus=s.finished?'Partido finalizado':(s.started?`● EN JUEGO · ${live.half}ª parte`:availabilityStatus(live.matchId));$('#liveMatchLabel').textContent=liveStatus+(editable?' · Edición habilitada':' · Solo lectura');updateSpecialRule();
-  $('#eventsList').innerHTML=s.events.length?s.events.slice().reverse().map(e=>`<div class="event-item"><div><b>⚽ ${playerProfileButton(e.scorer)}</b> · ${e.team}<small>${e.assist?`🅰️ ${playerProfileButton(e.assist)} · `:''}${e.scoreAfter?`Marcador ${e.scoreAfter}`:''}${e.value===2?' · ⚡ Gol doble':''}</small></div><strong>${e.half}ª · ${e.minute}'</strong></div>`).join(''):'<div class="muted">Todavía no hay eventos.</div>';
+  $('#eventsList').innerHTML=s.events.length?s.events.slice().reverse().map(e=>`<div class="event-item"><div><b>⚽ ${playerProfileButton(e.scorer)}</b> · ${e.team}<small>${e.assist?`🅰️ ${playerProfileButton(e.assist)} · `:''}${e.scoreAfter?`Marcador ${e.scoreAfter}`:''}${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ Gol doble (+2 competición)':''}</small></div><strong>${e.half}ª · ${e.minute}'</strong></div>`).join(''):'<div class="muted">Todavía no hay eventos.</div>';
   $('#mvpSelect').innerHTML='<option value="">Selecciona MVP</option>'+allMatchPlayers(f).map(p=>`<option ${s.mvp===p?'selected':''}>${p}</option>`).join('');$('#mvpSaved').innerHTML=s.mvp?`⭐ MVP guardado: ${playerProfileButton(s.mvp)}`:'';
   ['#startTimer','#pauseTimer','#resetTimer','#half1Btn','#half2Btn','#homeGoal','#awayGoal','#undoGoal','#finishMatch','#mvpSelect','#saveMvp'].forEach(sel=>{const el=$(sel);if(el)el.disabled=!editable||((sel==='#homeGoal'||sel==='#awayGoal'||sel==='#finishMatch')&&s.finished)});
 }
@@ -480,10 +504,10 @@ $('#half2Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopT
 $('#matchSelect').addEventListener('change',e=>{stopTimer();live.matchId=e.target.value;live.half=1;live.remaining=1200;renderLive()});
 $('#viewerStreamBtn').addEventListener('click',()=>{if($('#streamMatchSelect'))$('#streamMatchSelect').value=live.matchId;renderStreaming();navigate('streaming')});
 let goalSide='home';
-function openGoal(side){if(!requireMatchEdit())return;const f=findFixture(live.matchId),teamKey=f[side];goalSide=side;$('#goalTeamSide').value=side;$('#goalTitle').textContent=`Gol · ${teams[teamKey].name}`;const ps=playersOf(teamKey);$('#scorerSelect').innerHTML=ps.map(p=>`<option>${p}</option>`).join('');$('#assistSelect').innerHTML='<option value="">Sin asistencia</option>'+ps.map(p=>`<option>${p}</option>`).join('');$('#goalValueNotice').textContent=(live.half===2&&isSpecial())?'Este gol contará DOBLE (2 goles).':(live.half===1&&isSpecial())?'Dado Kings League activo. El gol contará normal hasta definir su mecánica.':'Gol normal (1).';$('#goalDialog').showModal()}
+function openGoal(side){if(!requireMatchEdit())return;const f=findFixture(live.matchId),teamKey=f[side];goalSide=side;$('#goalTeamSide').value=side;$('#goalTitle').textContent=`Gol · ${teams[teamKey].name}`;const ps=playersOf(teamKey);$('#scorerSelect').innerHTML=ps.map(p=>`<option>${p}</option>`).join('');$('#assistSelect').innerHTML='<option value="">Sin asistencia</option>'+ps.map(p=>`<option>${p}</option>`).join('');$('#goalValueNotice').textContent=isDoubleGoalActive()?'⚡ Últimos 2 minutos: 1 gol real sumará 2 goles al marcador y a la competición.':isDiceActive()?'Dado Kings League activo. El gol contará normal hasta definir su mecánica.':'Gol normal: 1 gol real = 1 gol de competición.';$('#goalDialog').showModal()}
 $('#homeGoal').addEventListener('click',()=>openGoal('home'));$('#awayGoal').addEventListener('click',()=>openGoal('away'));
-$('#goalForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();if(!requireMatchEdit())return;const f=findFixture(live.matchId),s=getMatchState(),teamKey=f[goalSide],scorer=$('#scorerSelect').value,assist=$('#assistSelect').value;if(assist===scorer&&assist){alert('El goleador y el asistente no pueden ser la misma persona.');return}const value=(live.half===2&&isSpecial())?2:1;s.started=true;if(goalSide==='home')s.homeScore+=value;else s.awayScore+=value;const scoreAfter=`${s.homeScore}-${s.awayScore}`;s.events.push({id:Date.now(),team:teams[teamKey].name,teamKey,side:goalSide,scorer,assist,value,half:live.half,minute:elapsedMinute(),homeScoreAfter:s.homeScore,awayScoreAfter:s.awayScore,scoreAfter});saveMatchState(s);$('#goalDialog').close();renderLive();refreshDataViews()});
-$('#undoGoal').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState(),e=s.events.pop();if(!e)return;if(e.side==='home')s.homeScore=Math.max(0,s.homeScore-e.value);else s.awayScore=Math.max(0,s.awayScore-e.value);saveMatchState(s);renderLive();refreshDataViews()});
+$('#goalForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();if(!requireMatchEdit())return;const f=findFixture(live.matchId),s=getMatchState(),teamKey=f[goalSide],scorer=$('#scorerSelect').value,assist=$('#assistSelect').value;if(assist===scorer&&assist){alert('El goleador y el asistente no pueden ser la misma persona.');return}const realValue=1,competitionValue=isDoubleGoalActive()?2:1,value=competitionValue;s.started=true;if(goalSide==='home')s.homeScore+=competitionValue;else s.awayScore+=competitionValue;const scoreAfter=`${s.homeScore}-${s.awayScore}`;s.events.push({id:Date.now(),team:teams[teamKey].name,teamKey,side:goalSide,scorer,assist,value,realValue,competitionValue,doubleGoal:competitionValue===2,half:live.half,minute:elapsedMinute(),homeScoreAfter:s.homeScore,awayScoreAfter:s.awayScore,scoreAfter});saveMatchState(s);$('#goalDialog').close();renderLive();refreshDataViews()});
+$('#undoGoal').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState(),e=s.events.pop();if(!e)return;const competitionValue=Number(e.competitionValue ?? e.value ?? 1);if(e.side==='home')s.homeScore=Math.max(0,s.homeScore-competitionValue);else s.awayScore=Math.max(0,s.awayScore-competitionValue);saveMatchState(s);renderLive();refreshDataViews()});
 $('#finishMatch').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState();if(!confirm('¿Finalizar el partido? El acta quedará marcada como finalizada.'))return;s.finished=true;s.started=false;saveMatchState(s);stopTimer();renderLive();refreshDataViews()});
 $('#saveMvp').addEventListener('click',()=>{if(!requireMatchEdit())return;const v=$('#mvpSelect').value;if(!v)return;const s=getMatchState();s.mvp=v;saveMatchState(s);renderLive();refreshDataViews()});
 
@@ -640,7 +664,7 @@ function renderPlayerProfile(name){
   const pending=fixtures.filter(f=>(f.home===meta.key||f.away===meta.key)&&!getStateFor(f.id).finished).sort((a,b)=>Number(a.round)-Number(b.round))[0];
   if(pending){const opp=pending.home===meta.key?pending.away:pending.home,av=availabilityData(pending.id),confirmed=av.options.find(o=>o.id===av.confirmedOptionId),myVotes=av.votes?.[name]||{},selected=av.options.filter(o=>myVotes[o.id]).map(availabilityVoteLabel);$('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt=""><div><strong>${teams[meta.key].name} vs ${teams[opp].name}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>${confirmed?availabilityOptionLabel(confirmed):(av.options.length?'Fecha por confirmar':'Esperando propuestas')}</strong><small>${selected.length?`Has marcado: ${selected.join(', ')}`:'Todavía no has marcado disponibilidad.'}</small></div><button class="primary" type="button" data-player-pending="${pending.id}">${confirmed?'Ver disponibilidad':'Votar disponibilidad'}</button></article>`;$('#playerPendingMatch [data-player-pending]')?.addEventListener('click',e=>openAvailability(e.currentTarget.dataset.playerPending))}else{$('#playerPendingMatch').innerHTML='<div class="empty-state">No quedan partidos pendientes para este jugador.</div>'}
   const activity=[];
-  fixtures.forEach(f=>{const state=getStateFor(f.id),relevant=(state.events||[]).filter(e=>e.scorer===name||e.assist===name),isMvp=state.mvp===name;if(!relevant.length&&!isMvp)return;const details=[];relevant.forEach(e=>{const score=e.scoreAfter?` · ${e.scoreAfter}`:'';if(e.scorer===name)details.push(`<span>⚽ Gol${score} · ${e.half}ª parte · ${e.minute}'${e.value===2?' · gol doble':''}</span>`);if(e.assist===name)details.push(`<span>🅰️ Asistencia a ${playerProfileButton(e.scorer)}${score} · ${e.half}ª parte · ${e.minute}'</span>`)});if(isMvp)details.push('<span>⭐ MVP del partido</span>');activity.push(`<article class="player-history-item"><div class="history-match-head"><div><strong>Jornada ${f.round}</strong><span>${teams[f.home].name} ${state.finished?state.homeScore:'–'} ${state.finished?state.awayScore:'–'} ${teams[f.away].name}</span></div><span class="history-status">${state.finished?'Finalizado':statusForFixture(f)}</span></div><div class="history-events">${details.join('')}</div></article>`)});
+  fixtures.forEach(f=>{const state=getStateFor(f.id),relevant=(state.events||[]).filter(e=>e.scorer===name||e.assist===name),isMvp=state.mvp===name;if(!relevant.length&&!isMvp)return;const details=[];relevant.forEach(e=>{const score=e.scoreAfter?` · ${e.scoreAfter}`:'';if(e.scorer===name)details.push(`<span>⚽ Gol${score} · ${e.half}ª parte · ${e.minute}'${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ +2 goles de competición':''}</span>`);if(e.assist===name)details.push(`<span>🅰️ Asistencia a ${playerProfileButton(e.scorer)}${score} · ${e.half}ª parte · ${e.minute}'</span>`)});if(isMvp)details.push('<span>⭐ MVP del partido</span>');activity.push(`<article class="player-history-item"><div class="history-match-head"><div><strong>Jornada ${f.round}</strong><span>${teams[f.home].name} ${state.finished?state.homeScore:'–'} ${state.finished?state.awayScore:'–'} ${teams[f.away].name}</span></div><span class="history-status">${state.finished?'Finalizado':statusForFixture(f)}</span></div><div class="history-events">${details.join('')}</div></article>`)});
   $('#playerMatchHistory').innerHTML=activity.length?activity.join(''):'<div class="empty-state">Este jugador todavía no tiene goles, asistencias ni MVP registrados.</div>';
 }
 function openPlayer(name){playerReturnView=document.body.dataset.view==='jugador'?playerReturnView:(document.body.dataset.view||'equipos');renderPlayerProfile(name);navigate('jugador')}

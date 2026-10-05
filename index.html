@@ -141,8 +141,8 @@
     </section>
 
     <section class="view" id="view-goleadores">
-      <div class="page-head"><div><span class="eyebrow">RANKING</span><h1>⚽ Goleadores</h1><p>Recuento automático de los goles registrados durante los partidos.</p></div></div>
-      <section class="panel table-panel"><div class="table-scroll"><table class="ranking-table"><thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES</th></tr></thead><tbody id="scorersBody"></tbody></table></div></section>
+      <div class="page-head"><div><span class="eyebrow">RANKING</span><h1>⚽ Goleadores</h1><p>Los goles de competición aplican la regla de gol doble; los goles reales cuentan cada gol físicamente marcado una sola vez.</p></div></div>
+      <section class="panel table-panel"><div class="table-scroll"><table class="ranking-table"><thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES COMPETICIÓN</th><th>🥅 GOLES REALES</th></tr></thead><tbody id="scorersBody"></tbody></table></div></section>
     </section>
 
     <section class="view" id="view-asistencias">
@@ -160,7 +160,7 @@
       <section class="panel table-panel">
         <div class="table-scroll">
           <table class="ranking-table player-ranking-table">
-            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>TOTAL</th></tr></thead>
+            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES COMP.</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>TOTAL</th></tr></thead>
             <tbody id="playersRankingBody"></tbody>
           </table>
         </div>
@@ -286,7 +286,7 @@
       <div class="rules-grid">
         <article class="rule-card"><span class="rule-number">01</span><h3>Duración</h3><p>Dos partes de 20 minutos cada una.</p></article>
         <article class="rule-card"><span class="rule-number">02</span><h3>Dado Kings League</h3><p>Se activa durante los últimos 2 minutos de la primera parte, del minuto 18 al 20. La mecánica exacta todavía está pendiente de definir.</p></article>
-        <article class="rule-card"><span class="rule-number">03</span><h3>Gol doble</h3><p>Durante los últimos 2 minutos de la segunda parte, del minuto 18 al 20, cada gol cuenta doble.</p></article>
+        <article class="rule-card"><span class="rule-number">03</span><h3>Gol doble</h3><p>Durante los últimos 2 minutos de la segunda parte, del minuto 18:00 al 20:00, cada gol real suma 2 goles al marcador y a los goles de competición.</p></article>
         <article class="rule-card"><span class="rule-number">04</span><h3>Formato inicial</h3><p>Primera fase con un único grupo de 5 equipos, seguida del play off definido para la competición.</p></article>
         <article class="rule-card"><span class="rule-number">05</span><h3>Desempates de clasificación</h3><p>Se aplicará el sistema de la liga española: entre dos equipos, primero diferencia de goles en los enfrentamientos directos; después diferencia general, goles a favor y juego limpio. Si hay más de dos empatados, primero se crea una mini-clasificación con los partidos entre ellos, luego diferencia de goles entre esos equipos, diferencia general, goles a favor y juego limpio.</p></article>
       </div>
@@ -381,8 +381,6 @@
     </form>
   </dialog>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
