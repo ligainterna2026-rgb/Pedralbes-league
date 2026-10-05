@@ -27,7 +27,7 @@
       <button class="nav-link" data-view="goleadores"><span class="nav-icon">⚽</span><span>Goleadores</span></button>
       <button class="nav-link" data-view="asistencias"><span class="nav-icon">🅰️</span><span>Asistencias</span></button>
       <button class="nav-link" data-view="mvps"><span class="nav-icon">⭐</span><span>MVP</span></button>
-      <button class="nav-link" data-view="jugadores"><span class="nav-icon">🏅</span><span>Ranking jugadores</span></button>
+      <button class="nav-link" data-view="jugadores"><span class="nav-icon">🏅</span><span>Ranking general</span></button>
       <button class="nav-link" data-view="premios"><span class="nav-icon">5️⃣</span><span>5 ideal</span></button>
       <span class="nav-section-label">Partidos</span>
       <button class="nav-link" data-view="disponibilidad"><span class="nav-icon">✅</span><span>Disponibilidad</span></button>
@@ -156,11 +156,11 @@
     </section>
 
     <section class="view" id="view-jugadores">
-      <div class="page-head"><div><span class="eyebrow">CLASIFICACIÓN INDIVIDUAL</span><h1>Ranking de jugadores</h1><p>Clasificación combinada con goles, asistencias y MVP. El índice provisional suma las tres estadísticas; si luego quieres darles un peso distinto, lo cambiamos.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">CLASIFICACIÓN INDIVIDUAL</span><h1>Ranking general</h1><p>Sistema de puntos: ⚽ gol real +4 · 🅰️ asistencia +2 · ⭐ MVP +3 · victoria +2 · empate +1 · derrota 0. Los puntos por resultado solo cuentan para jugadores marcados como participantes en el acta.</p></div></div>
       <section class="panel table-panel">
         <div class="table-scroll">
           <table class="ranking-table player-ranking-table">
-            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES COMP.</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>TOTAL</th></tr></thead>
+            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES REALES</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>PTS</th></tr></thead>
             <tbody id="playersRankingBody"></tbody>
           </table>
         </div>
@@ -233,6 +233,11 @@
         <section class="panel"><h2>Eventos</h2><div id="eventsList" class="events-list"></div></section>
         <section id="liveMvpPanel" class="panel"><h2>⭐ MVP del partido</h2><p class="muted">Lo elige el árbitro.</p><select id="mvpSelect"></select><button id="saveMvp" class="primary full">⭐ Guardar MVP</button><div id="mvpSaved" class="saved-msg"></div></section>
       </div>
+      <section id="matchParticipantsPanel" class="panel" hidden style="margin-top:18px">
+        <div class="panel-head"><div><span class="eyebrow">ACTA</span><h2>Jugadores que participaron</h2><p>El Admin marca quién jugó. Goleadores, asistentes y MVP se marcan automáticamente.</p></div></div>
+        <div id="matchParticipants" class="availability-vote-grid"></div>
+        <div id="matchParticipantsSummary" class="summary-box"></div>
+      </section>
     </section>
 
     <section class="view" id="view-streaming">
@@ -289,7 +294,7 @@
     </section>
 
     <section class="view" id="view-premios">
-      <div class="page-head"><div><span class="eyebrow">ELECCIÓN MANUAL</span><h1>5 ideal de la jornada</h1><p>No depende de estadísticas: lo decides tú.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">ELECCIÓN MANUAL</span><h1>5 ideal de la jornada</h1><p>Lo decide el Admin. Cada jugador muestra sus goles reales y asistencias de esa jornada.</p></div></div>
       <div class="panel ideal-panel"><label for="idealRound">Jornada</label><select id="idealRound"></select><div id="idealFive" class="ideal-five"></div><div class="ideal-actions"><button id="saveIdeal" class="primary">Guardar 5 ideal</button><button id="shareIdeal" class="secondary" type="button">↗ Compartir como imagen</button></div><div id="idealSaved" class="saved-msg"></div><p class="muted ideal-share-hint">La imagen incluye la formación, las fotos de perfil y el escudo del equipo. En móvil compatible podrás compartirla directamente; si no, se descargará como PNG.</p></div>
     </section>
 
@@ -315,14 +320,14 @@
         <form id="loginForm" class="panel auth-card">
           <span class="eyebrow">INICIAR SESIÓN</span><h2>Entrar</h2>
           <label for="loginEmail">Correo</label><input id="loginEmail" type="email" autocomplete="email" required>
-          <label for="loginPassword">Contraseña de demo</label><input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
+          <label for="loginPassword">Contraseña</label><div style="display:flex;gap:8px;align-items:center"><input id="loginPassword" type="password" autocomplete="current-password" required minlength="6" style="flex:1;min-width:0"><button class="ghost" type="button" data-toggle-password="loginPassword" aria-pressed="false" style="white-space:nowrap">👁 Mostrar</button></div>
           <button class="primary full" type="submit">Entrar</button>
           <div id="loginMsg" class="saved-msg"></div>
         </form>
         <form id="registerForm" class="panel auth-card">
           <span class="eyebrow">NUEVA CUENTA</span><h2>Registrarse</h2>
           <label for="registerEmail">Correo</label><input id="registerEmail" type="email" autocomplete="email" required>
-          <label for="registerPassword">Contraseña de demo</label><input id="registerPassword" type="password" autocomplete="new-password" required minlength="6">
+          <label for="registerPassword">Contraseña</label><div style="display:flex;gap:8px;align-items:center"><input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" style="flex:1;min-width:0"><button class="ghost" type="button" data-toggle-password="registerPassword" aria-pressed="false" style="white-space:nowrap">👁 Mostrar</button></div>
           <label for="registerPlayer">¿Qué jugador eres?</label>
           <select id="registerPlayer" required><option value="">Selecciona tu jugador</option></select>
           <button class="secondary full" type="submit">Crear cuenta y vincular jugador</button>
