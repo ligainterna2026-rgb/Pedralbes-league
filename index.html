@@ -199,6 +199,7 @@
     </section>
 
     <section class="view" id="view-directo">
+      <button id="liveBack" class="ghost back-btn" type="button">← Volver</button>
       <div class="page-head"><div><span id="liveEyebrow" class="eyebrow">EN DIRECTO</span><h1 id="liveTitle">Partido en directo</h1><p id="liveDescription">Sigue el marcador y los eventos en tiempo real.</p></div><button id="viewerStreamBtn" class="secondary live-stream-button" type="button">▶ Ver streaming</button></div>
       <div class="live-layout">
         <aside class="control-card">
@@ -208,6 +209,15 @@
           <div class="timer" id="timer">20:00</div>
           <div id="specialRule" class="special-rule">Tiempo normal</div>
           <div id="liveTimerActions" class="timer-actions"><button id="startTimer" class="primary">▶ Iniciar</button><button id="pauseTimer" class="secondary">⏸ Pausar</button><button id="resetTimer" class="ghost">↺ Reiniciar parte</button></div>
+          <div id="adminTimeJump" class="notice compact admin-only-block" hidden style="margin-top:14px">
+            <strong>⚙️ Admin · Ir a un minuto</strong>
+            <p class="muted" style="margin:6px 0 10px">Indica el tiempo transcurrido de la parte. 18:00 activa el gol doble en la 2ª parte.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <label for="jumpMinute">Minuto<input id="jumpMinute" type="number" min="0" max="20" value="0"></label>
+              <label for="jumpSecond">Segundo<input id="jumpSecond" type="number" min="0" max="59" value="0"></label>
+            </div>
+            <button id="applyMatchTime" class="ghost full" type="button">Aplicar tiempo</button>
+          </div>
         </aside>
         <section class="score-card">
           <div id="liveMatchLabel" class="live-label">Fecha por decidir</div>
@@ -226,6 +236,7 @@
     </section>
 
     <section class="view" id="view-streaming">
+      <button id="streamingBack" class="ghost back-btn" type="button">← Volver</button>
       <div class="page-head"><div><span class="eyebrow">YOUTUBE LIVE</span><h1>Streaming y grabaciones</h1><p>El directo se emitirá por YouTube y se verá integrado dentro de la web. La grabación quedará vinculada al partido.</p></div></div>
       <div class="streaming-grid">
         <section class="streaming-stage">
@@ -258,6 +269,7 @@
     </section>
 
     <section class="view" id="view-disponibilidad">
+      <button id="availabilityBack" class="ghost back-btn" type="button">← Volver</button>
       <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>El administrador propone 3 días y horas. Cada jugador marca directamente los días en los que puede jugar.</p></div></div>
       <div class="panel availability-panel">
         <label for="availabilityMatch">Partido</label>
@@ -378,6 +390,20 @@
       <label for="assistSelect">🅰️ Asistencia</label><select id="assistSelect"></select>
       <div id="goalValueNotice" class="notice compact"></div>
       <div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="confirmGoal" value="default" class="primary">Confirmar gol</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="editGoalDialog">
+    <form method="dialog" id="editGoalForm">
+      <div class="dialog-head"><div><span class="eyebrow">CORREGIR ACTA</span><h2>Editar gol</h2></div><button value="cancel" class="icon-btn" aria-label="Cerrar">✕</button></div>
+      <input type="hidden" id="editGoalId">
+      <label for="editGoalSide">Equipo</label><select id="editGoalSide" required></select>
+      <label for="editScorerSelect">⚽ Goleador</label><select id="editScorerSelect" required></select>
+      <label for="editAssistSelect">🅰️ Asistencia</label><select id="editAssistSelect"></select>
+      <label for="editGoalHalf">Parte</label><select id="editGoalHalf"><option value="1">1ª parte</option><option value="2">2ª parte</option></select>
+      <label for="editGoalMinute">Minuto</label><input id="editGoalMinute" type="number" min="1" max="20" required>
+      <div id="editGoalValueNotice" class="notice compact"></div>
+      <div class="dialog-actions"><button id="deleteGoal" type="button" class="ghost">Eliminar gol</button><button value="cancel" class="secondary">Cancelar</button><button value="default" class="primary">Guardar cambios</button></div>
     </form>
   </dialog>
 
