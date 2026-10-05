@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#720f17" />
+  <title>Liga Interna Pedralbes 2026</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" data-go="inicio" aria-label="Ir al inicio">
+      <img src="assets/logo-liga.jpeg" alt="Logo de la liga" class="brand-logo" />
+      <div class="brand-copy">
+        <strong>Liga Interna Pedralbes</strong>
+        <span>2026 · Fútbol sala</span>
+      </div>
+    </button>
+    <button id="menuBtn" class="menu-btn" aria-expanded="false" aria-controls="nav">☰</button>
+    <nav id="nav" class="nav" aria-label="Navegación principal">
+      <span class="nav-section-label">Competición</span>
+      <button class="nav-link active" data-view="inicio"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+      <button class="nav-link" data-view="jornadas"><span class="nav-icon">📅</span><span>Jornadas</span></button>
+      <button class="nav-link" data-view="clasificacion"><span class="nav-icon">📊</span><span>Clasificación</span></button>
+      <button class="nav-link" data-view="equipos"><span class="nav-icon">🛡️</span><span>Equipos</span></button>
+      <span class="nav-section-label">Estadísticas</span>
+      <button class="nav-link" data-view="goleadores"><span class="nav-icon">⚽</span><span>Goleadores</span></button>
+      <button class="nav-link" data-view="asistencias"><span class="nav-icon">🅰️</span><span>Asistencias</span></button>
+      <button class="nav-link" data-view="mvps"><span class="nav-icon">⭐</span><span>MVP</span></button>
+      <button class="nav-link" data-view="jugadores"><span class="nav-icon">🏅</span><span>Ranking jugadores</span></button>
+      <button class="nav-link" data-view="premios"><span class="nav-icon">5️⃣</span><span>5 ideal</span></button>
+      <span class="nav-section-label">Partidos</span>
+      <button class="nav-link" data-view="disponibilidad"><span class="nav-icon">✅</span><span>Disponibilidad</span></button>
+      <button class="nav-link" data-view="directo"><span class="nav-icon">🔴</span><span>En directo</span></button>
+      <button class="nav-link" data-view="streaming"><span class="nav-icon">▶️</span><span>Streaming</span></button>
+      <span class="nav-section-label">Más</span>
+      <button class="nav-link" data-view="reglas"><span class="nav-icon">📖</span><span>Reglas</span></button>
+      <button class="nav-link admin-only" data-view="admin" hidden><span class="nav-icon">⚙️</span><span>Administración</span></button>
+    </nav>
+    <button id="accountBtn" class="account-btn" type="button" aria-label="Cuenta">
+      <span id="accountAvatar" class="account-avatar">👤</span>
+      <span class="account-copy"><strong id="accountLabel">Entrar</strong><small id="accountRole">Visitante</small></span>
+    </button>
+  </header>
+  <div id="navBackdrop" class="nav-backdrop" aria-hidden="true"></div>
+
+  <main class="shell">
+    <section class="view active" id="view-inicio">
+      <div class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow">FÚTBOL SALA · TEMPORADA 2026</span>
+          <h1 class="league-main-title">Liga Interna Pedralbes 2026</h1>
+          <p class="league-main-subtitle">Resultados, estadísticas y toda la competición en directo.</p>
+          <div class="hero-actions">
+            <button class="primary" data-go="jornadas">Ver jornadas</button>
+            <button class="secondary" data-go="directo">Ver partido en directo</button>
+          </div>
+        </div>
+        <div class="next-match-card" id="nextMatchCard">
+          <div class="next-match-head">
+            <span class="eyebrow">PRÓXIMO PARTIDO</span>
+            <span id="nextRoundBadge" class="round-badge">Jornada 1</span>
+          </div>
+          <div class="next-match-teams">
+            <div class="next-club"><img id="nextHomeLogo" alt="Escudo local"><strong id="nextHomeName">—</strong></div>
+            <span class="next-vs">VS</span>
+            <div class="next-club"><img id="nextAwayLogo" alt="Escudo visitante"><strong id="nextAwayName">—</strong></div>
+          </div>
+          <div id="nextMatchStatus" class="next-match-status">Fecha por decidir</div>
+          <button id="startNextMatch" class="primary full">📅 Confirmar / votar partido</button>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <div><span class="eyebrow">EQUIPOS</span><h2>Los 5 equipos de la liga</h2><p>Pulsa en un escudo para abrir su plantilla y sus estadísticas.</p></div>
+      </div>
+      <div id="homeTeams" class="team-strip"></div>
+
+      <div class="home-grid">
+        <section class="panel home-panel">
+          <div class="panel-head"><div><span class="eyebrow">ÚLTIMOS PARTIDOS</span><h2>Resultados</h2></div><button class="text-btn" data-go="jornadas">Ver todos</button></div>
+          <div id="recentResults" class="match-list"></div>
+        </section>
+        <section class="panel home-panel">
+          <div class="panel-head"><div><span class="eyebrow">PRÓXIMOS</span><h2>Por jugar</h2></div><button class="text-btn" data-go="jornadas">Calendario</button></div>
+          <div id="upcomingMatches" class="match-list"></div>
+        </section>
+      </div>
+
+      <section class="panel home-stats">
+        <div class="panel-head"><div><span class="eyebrow">ESTADÍSTICAS</span><h2>Jugadores destacados</h2><p>Se irá rellenando automáticamente cuando se registren partidos.</p></div></div>
+        <div class="stats-cards">
+          <div><span class="stat-label">Máximo goleador</span><button id="homeTopScorer" class="player-name-button stat-player" type="button">—</button><small id="homeTopScorerMeta">0 goles</small></div>
+          <div><span class="stat-label">Máximo asistente</span><button id="homeTopAssist" class="player-name-button stat-player" type="button">—</button><small id="homeTopAssistMeta">0 asistencias</small></div>
+          <div><span class="stat-label">Más MVP</span><button id="homeTopMvp" class="player-name-button stat-player" type="button">—</button><small id="homeTopMvpMeta">0 MVP</small></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="view-clasificacion">
+      <div class="page-head"><div><span class="eyebrow">COMPETICIÓN</span><h1>Clasificación</h1><p>Puedes alternar entre la fase de grupos y la eliminatoria. Los equipos son clicables para abrir directamente su ficha, y el cuadro de play off se actualiza con la clasificación actual.</p></div></div>
+      <div class="classification-tabs" role="tablist" aria-label="Fase de la competición">
+        <button id="groupTab" class="classification-tab active" type="button" data-classification-tab="group">Fase de grupos</button>
+        <button id="knockoutTab" class="classification-tab" type="button" data-classification-tab="knockout">Eliminatoria</button>
+      </div>
+      <section id="classificationGroupPanel" class="panel table-panel classification-panel">
+        <div class="table-scroll">
+          <table class="standings-table">
+            <thead><tr><th>POS</th><th class="team-col">EQUIPO</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th><th>RACHA</th><th>EN DIRECTO</th></tr></thead>
+            <tbody id="standingsBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="classificationKnockoutPanel" class="panel knockout-panel" hidden>
+        <div class="panel-head"><div><span class="eyebrow">PLAY OFF</span><h2>Cuadro dinámico</h2><p>Se actualiza automáticamente según la clasificación actual de la fase de grupos.</p></div></div>
+        <div id="playoffBracket" class="playoff-bracket"></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-jornadas">
+      <div class="page-head"><div><span class="eyebrow">CALENDARIO</span><h1>Jornadas</h1><p>Se muestran todos los partidos desde el principio, aunque todavía no tengan horario confirmado. Pulsa en uno para votar disponibilidad o abrir el directo si ya está en juego.</p></div></div>
+      <div id="rounds"></div>
+    </section>
+
+    <section class="view" id="view-equipos">
+      <div class="page-head"><div><span class="eyebrow">PLANTILLAS</span><h1>Equipos y jugadores</h1><p>Los capitanes aparecen identificados con una C. Las estadísticas se calculan a partir de los partidos registrados.</p></div></div>
+      <div id="teamsGrid" class="teams-grid"></div>
+    </section>
+
+    <section class="view" id="view-equipo">
+      <button id="teamBack" class="ghost back-btn" type="button">← Volver a equipos</button>
+      <div class="team-profile-hero">
+        <img id="teamProfileLogo" alt="Escudo del equipo">
+        <div><span class="eyebrow">FICHA DEL EQUIPO</span><h1 id="teamProfileName">Equipo</h1><p id="teamProfileMeta" class="muted">—</p></div>
+      </div>
+      <div class="team-profile-grid">
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">ÚLTIMOS</span><h2>Partidos jugados</h2></div></div><div id="teamRecentMatches" class="match-list"></div></section>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">PRÓXIMOS</span><h2>Partidos por jugar</h2></div></div><div id="teamUpcomingMatches" class="match-list"></div></section>
+      </div>
+      <section class="panel team-roster-panel"><div class="panel-head"><div><span class="eyebrow">PLANTILLA</span><h2>Jugadores</h2></div></div><div id="teamProfileRoster" class="roster"></div></section>
+    </section>
+
+    <section class="view" id="view-goleadores">
+      <div class="page-head"><div><span class="eyebrow">RANKING</span><h1>⚽ Goleadores</h1><p>Recuento automático de los goles registrados durante los partidos.</p></div></div>
+      <section class="panel table-panel"><div class="table-scroll"><table class="ranking-table"><thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES</th></tr></thead><tbody id="scorersBody"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-asistencias">
+      <div class="page-head"><div><span class="eyebrow">RANKING</span><h1>🅰️ Asistencias</h1><p>Recuento automático de las asistencias que se indiquen al registrar cada gol.</p></div></div>
+      <section class="panel table-panel"><div class="table-scroll"><table class="ranking-table"><thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>🅰️ ASISTENCIAS</th></tr></thead><tbody id="assistsBody"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-mvps">
+      <div class="page-head"><div><span class="eyebrow">RANKING</span><h1>⭐ MVP</h1><p>Jugadores que más veces han sido elegidos MVP del partido.</p></div></div>
+      <section class="panel table-panel"><div class="table-scroll"><table class="ranking-table"><thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⭐ MVP</th></tr></thead><tbody id="mvpsBody"></tbody></table></div></section>
+    </section>
+
+    <section class="view" id="view-jugadores">
+      <div class="page-head"><div><span class="eyebrow">CLASIFICACIÓN INDIVIDUAL</span><h1>Ranking de jugadores</h1><p>Clasificación combinada con goles, asistencias y MVP. El índice provisional suma las tres estadísticas; si luego quieres darles un peso distinto, lo cambiamos.</p></div></div>
+      <section class="panel table-panel">
+        <div class="table-scroll">
+          <table class="ranking-table player-ranking-table">
+            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>TOTAL</th></tr></thead>
+            <tbody id="playersRankingBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="view-jugador">
+      <button id="playerBack" class="ghost back-btn" type="button">← Volver</button>
+      <div class="player-profile-hero">
+        <div id="playerProfileAvatar" class="profile-avatar">—</div>
+        <div class="player-profile-copy">
+          <span class="eyebrow">FICHA DEL JUGADOR</span>
+          <h1 id="playerProfileName">Jugador</h1>
+          <div class="player-profile-team"><img id="playerProfileTeamLogo" alt="Escudo del equipo"><span id="playerProfileTeam">—</span><span id="playerProfileCaptain" class="captain-label" hidden>CAPITÁN</span></div>
+        </div>
+      </div>
+      <div id="playerPhotoControls" class="profile-photo-controls" hidden>
+        <label class="photo-upload-btn" for="playerPhotoInput">📷 Cambiar foto</label>
+        <input id="playerPhotoInput" type="file" accept="image/*" hidden>
+        <button id="removePlayerPhoto" class="ghost compact-btn" type="button">Quitar foto</button>
+        <span id="playerPhotoHelp" class="muted">Solo tú puedes cambiar tu foto; el administrador puede cambiar cualquiera.</span>
+      </div>
+      <div class="profile-stat-grid">
+        <div class="profile-stat"><span class="emoji-icon">⚽</span><strong id="playerProfileGoals">0</strong><span>Goles</span></div>
+        <div class="profile-stat"><span class="emoji-icon">🅰️</span><strong id="playerProfileAssists">0</strong><span>Asistencias</span></div>
+        <div class="profile-stat"><span class="emoji-icon">⭐</span><strong id="playerProfileMvps">0</strong><span>MVP</span></div>
+      </div>
+      <section class="panel player-upcoming-panel">
+        <div class="panel-head"><div><span class="eyebrow">PRÓXIMO PARTIDO</span><h2>Partido por confirmar</h2><p>Consulta las opciones y vota tu disponibilidad si este es tu perfil.</p></div></div>
+        <div id="playerPendingMatch"></div>
+      </section>
+      <section class="panel player-history-panel">
+        <div class="panel-head"><div><span class="eyebrow">PARTIDOS</span><h2>Actividad del jugador</h2><p>Partidos en los que ha marcado, asistido o sido elegido MVP.</p></div></div>
+        <div id="playerMatchHistory" class="player-history"></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-directo">
+      <div class="page-head"><div><span id="liveEyebrow" class="eyebrow">EN DIRECTO</span><h1 id="liveTitle">Partido en directo</h1><p id="liveDescription">Sigue el marcador y los eventos en tiempo real.</p></div><button id="viewerStreamBtn" class="secondary live-stream-button" type="button">▶ Ver streaming</button></div>
+      <div class="live-layout">
+        <aside class="control-card">
+          <label for="matchSelect">Partido</label>
+          <select id="matchSelect"></select>
+          <div id="liveHalfControls" class="half-switch"><button id="half1Btn" class="pill active">1ª parte</button><button id="half2Btn" class="pill">2ª parte</button></div>
+          <div class="timer" id="timer">20:00</div>
+          <div id="specialRule" class="special-rule">Tiempo normal</div>
+          <div id="liveTimerActions" class="timer-actions"><button id="startTimer" class="primary">▶ Iniciar</button><button id="pauseTimer" class="secondary">⏸ Pausar</button><button id="resetTimer" class="ghost">↺ Reiniciar parte</button></div>
+        </aside>
+        <section class="score-card">
+          <div id="liveMatchLabel" class="live-label">Fecha por decidir</div>
+          <div class="scoreboard">
+            <div class="side"><img id="homeLogo" alt="Escudo local"/><h3 id="homeName"></h3><div id="homeScore" class="score">0</div><button id="homeGoal" class="goal-btn live-editor-control">⚽ Gol local</button></div>
+            <div class="versus">VS</div>
+            <div class="side"><img id="awayLogo" alt="Escudo visitante"/><h3 id="awayName"></h3><div id="awayScore" class="score">0</div><button id="awayGoal" class="goal-btn live-editor-control">⚽ Gol visitante</button></div>
+          </div>
+          <div id="liveEventActions" class="event-actions"><button id="undoGoal" class="ghost">Deshacer último gol</button><button id="finishMatch" class="secondary">Finalizar partido</button></div>
+        </section>
+      </div>
+      <div class="two-col">
+        <section class="panel"><h2>Eventos</h2><div id="eventsList" class="events-list"></div></section>
+        <section id="liveMvpPanel" class="panel"><h2>⭐ MVP del partido</h2><p class="muted">Lo elige el árbitro.</p><select id="mvpSelect"></select><button id="saveMvp" class="primary full">⭐ Guardar MVP</button><div id="mvpSaved" class="saved-msg"></div></section>
+      </div>
+    </section>
+
+    <section class="view" id="view-streaming">
+      <div class="page-head"><div><span class="eyebrow">YOUTUBE LIVE</span><h1>Streaming y grabaciones</h1><p>El directo se emitirá por YouTube y se verá integrado dentro de la web. La grabación quedará vinculada al partido.</p></div></div>
+      <div class="streaming-grid">
+        <section class="streaming-stage">
+          <div id="youtubePlayerWrap" class="youtube-player-wrap" hidden><iframe id="youtubePlayer" title="Streaming del partido" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+          <div id="streamingFallback" class="streaming-screen">
+            <div class="streaming-overlay">
+              <span id="streamBadge" class="stream-badge">FUERA DE DIRECTO</span>
+              <div class="stream-score"><img id="streamHomeLogo" alt="Escudo local"><strong id="streamHomeName">—</strong><span>VS</span><strong id="streamAwayName">—</strong><img id="streamAwayLogo" alt="Escudo visitante"></div>
+              <div id="streamStatus" class="stream-status">Todavía no hay un enlace de YouTube para este partido.</div>
+            </div>
+          </div>
+        </section>
+        <aside class="panel stream-controls">
+          <label for="streamMatchSelect">Partido</label>
+          <select id="streamMatchSelect"></select>
+          <div class="admin-stream-fields admin-only-block">
+            <label for="youtubeLiveUrl">Enlace de YouTube Live</label>
+            <input id="youtubeLiveUrl" type="url" placeholder="https://youtube.com/watch?v=...">
+            <label for="youtubeRecordingUrl">Enlace de la grabación</label>
+            <input id="youtubeRecordingUrl" type="url" placeholder="https://youtube.com/watch?v=...">
+            <button id="saveYoutubeLinks" class="primary full" type="button">Guardar enlaces de YouTube</button>
+          </div>
+          <div id="streamReadOnlyNotice" class="notice compact">Los enlaces del directo solo los configura el administrador. Todo el mundo puede ver la emisión.</div>
+        </aside>
+      </div>
+      <section class="panel stream-archive">
+        <div class="panel-head"><div><span class="eyebrow">ARCHIVO</span><h2>Partidos grabados</h2><p>Las grabaciones de YouTube aparecerán aquí cuando estén vinculadas.</p></div></div>
+        <div id="streamArchive" class="empty-state">Todavía no hay partidos grabados.</div>
+      </section>
+    </section>
+
+    <section class="view" id="view-disponibilidad">
+      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>El administrador propone 3 días y horas. Cada jugador marca directamente los días en los que puede jugar.</p></div></div>
+      <div class="panel availability-panel">
+        <label for="availabilityMatch">Partido</label>
+        <select id="availabilityMatch"></select>
+
+        <section id="availabilityAdminEditor" class="availability-admin-editor" hidden>
+          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer 3 días</h2><p>Elige el día de la semana y la hora. La web calcula automáticamente la fecha y el mes. Los jugadores votarán directamente cada día.</p></div></div>
+          <div id="availabilityOptionEditors" class="availability-option-editors"></div>
+          <div class="availability-admin-actions"><button id="saveAvailabilityOptions" class="secondary" type="button">Guardar 3 días</button><button id="clearAvailabilityOptions" class="ghost" type="button">Borrar días</button></div>
+          <div id="availabilityAdminMsg" class="saved-msg"></div>
+        </section>
+
+        <div id="availabilityOptions" class="availability-options"></div>
+        <div id="availabilityGrid" class="availability-vote-grid"></div>
+        <div id="availabilitySummary" class="summary-box"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-premios">
+      <div class="page-head"><div><span class="eyebrow">ELECCIÓN MANUAL</span><h1>5 ideal de la jornada</h1><p>No depende de estadísticas: lo decides tú.</p></div></div>
+      <div class="panel ideal-panel"><label for="idealRound">Jornada</label><select id="idealRound"></select><div id="idealFive" class="ideal-five"></div><div class="ideal-actions"><button id="saveIdeal" class="primary">Guardar 5 ideal</button><button id="shareIdeal" class="secondary" type="button">↗ Compartir como imagen</button></div><div id="idealSaved" class="saved-msg"></div><p class="muted ideal-share-hint">La imagen incluye la formación, las fotos de perfil y el escudo del equipo. En móvil compatible podrás compartirla directamente; si no, se descargará como PNG.</p></div>
+    </section>
+
+    <section class="view" id="view-reglas">
+      <div class="page-head"><div><span class="eyebrow">REGLAMENTO</span><h1>Reglas de la liga</h1><p>Reglas confirmadas hasta ahora. Los puntos pendientes se completarán cuando definas el sistema de clasificación y el funcionamiento exacto del dado.</p></div></div>
+      <div class="rules-grid">
+        <article class="rule-card"><span class="rule-number">01</span><h3>Duración</h3><p>Dos partes de 20 minutos cada una.</p></article>
+        <article class="rule-card"><span class="rule-number">02</span><h3>Dado Kings League</h3><p>Se activa durante los últimos 2 minutos de la primera parte, del minuto 18 al 20. La mecánica exacta todavía está pendiente de definir.</p></article>
+        <article class="rule-card"><span class="rule-number">03</span><h3>Gol doble</h3><p>Durante los últimos 2 minutos de la segunda parte, del minuto 18 al 20, cada gol cuenta doble.</p></article>
+        <article class="rule-card"><span class="rule-number">04</span><h3>Formato inicial</h3><p>Primera fase con un único grupo de 5 equipos, seguida del play off definido para la competición.</p></article>
+        <article class="rule-card"><span class="rule-number">05</span><h3>Desempates de clasificación</h3><p>Se aplicará el sistema de la liga española: entre dos equipos, primero diferencia de goles en los enfrentamientos directos; después diferencia general, goles a favor y juego limpio. Si hay más de dos empatados, primero se crea una mini-clasificación con los partidos entre ellos, luego diferencia de goles entre esos equipos, diferencia general, goles a favor y juego limpio.</p></article>
+      </div>
+    </section>
+
+    <section class="view" id="view-cuenta">
+      <div class="page-head"><div><span class="eyebrow">CUENTA</span><h1>Mi cuenta</h1><p>Los visitantes pueden ver toda la liga. Las funciones de edición se activan según los roles de cada usuario.</p></div></div>
+      <div id="accountPanel" class="account-panel"></div>
+    </section>
+
+    <section class="view" id="view-acceso">
+      <div class="page-head"><div><span class="eyebrow">ACCESO</span><h1>Entrar o registrarse</h1><p>En la versión publicada el registro se hará con correo y contraseña. Este archivo local incluye un modo de demostración para probar permisos sin usar una contraseña real.</p></div></div>
+      <div class="auth-grid">
+        <form id="loginForm" class="panel auth-card">
+          <span class="eyebrow">INICIAR SESIÓN</span><h2>Entrar</h2>
+          <label for="loginEmail">Correo</label><input id="loginEmail" type="email" autocomplete="email" required>
+          <label for="loginPassword">Contraseña de demo</label><input id="loginPassword" type="password" autocomplete="current-password" required minlength="6">
+          <button class="primary full" type="submit">Entrar</button>
+          <div id="loginMsg" class="saved-msg"></div>
+        </form>
+        <form id="registerForm" class="panel auth-card">
+          <span class="eyebrow">NUEVA CUENTA</span><h2>Registrarse</h2>
+          <label for="registerEmail">Correo</label><input id="registerEmail" type="email" autocomplete="email" required>
+          <label for="registerPassword">Contraseña de demo</label><input id="registerPassword" type="password" autocomplete="new-password" required minlength="6">
+          <label for="registerPlayer">¿Qué jugador eres?</label>
+          <select id="registerPlayer" required><option value="">Selecciona tu jugador</option></select>
+          <button class="secondary full" type="submit">Crear cuenta y vincular jugador</button>
+          <div class="notice compact">Al registrarte, tu cuenta quedará vinculada directamente al jugador que elijas y tendrás el rol <strong>Jugador</strong>. No necesita aprobación del administrador. Los roles <strong>Árbitro</strong> y <strong>Administrador</strong> solo los puede asignar la cuenta principal de la liga.</div>
+          <div id="registerMsg" class="saved-msg"></div>
+        </form>
+      </div>
+      <section class="panel demo-login-panel">
+        <div><span class="eyebrow">MODO DEMO</span><h2>Probar como administrador</h2><p class="muted">Solo para este prototipo local. No aparecerá en la web pública.</p></div>
+        <button id="demoAdminLogin" class="primary" type="button">Entrar como ligainterna2026@gmail.com</button>
+      </section>
+    </section>
+
+    <section class="view" id="view-admin">
+      <div class="page-head"><div><span class="eyebrow">ADMINISTRACIÓN</span><h1>Gestión de la liga</h1><p>Cuenta principal de la liga: <strong>ligainterna2026@gmail.com</strong>. Cada jugador se vincula él mismo al registrarse; desde aquí puedes asignarle además los roles de árbitro o administrador.</p></div></div>
+      <div class="permissions-grid">
+        <div class="permission-card"><span class="role admin">ADMIN</span><h3>Administrador</h3><p>Configuración completa, usuarios, roles, fotos, 5 ideal, enlaces de YouTube y correcciones.</p></div>
+        <div class="permission-card"><span class="role ref">ÁRBITRO</span><h3>Árbitro</h3><p>Solo puede editar los partidos que tenga asignados: cronómetro, ⚽ goles, 🅰️ asistencias, resultado y ⭐ MVP.</p></div>
+        <div class="permission-card"><span class="role player">JUGADOR</span><h3>Jugador</h3><p>Elige su propia ficha al registrarse, puede votar su disponibilidad y cambiar su foto. Puede ser también árbitro con la misma cuenta.</p></div>
+        <div class="permission-card"><span class="role guest">VISITANTE</span><h3>Sin registro</h3><p>Puede ver toda la competición, estadísticas, streaming y grabaciones, pero no puede editar nada.</p></div>
+      </div>
+      <section class="panel admin-users-panel">
+        <div class="panel-head"><div><span class="eyebrow">CUENTAS</span><h2>Usuarios registrados</h2><p>La vinculación con el jugador se hace durante el registro. Aquí puedes corregirla si hay un error y asignar los roles de Árbitro o Administrador.</p></div></div>
+        <div id="adminUsers" class="admin-users"></div>
+      </section>
+      <section class="panel admin-fixtures-panel">
+        <div class="panel-head"><div><span class="eyebrow">CALENDARIO</span><h2>Editar jornadas y partidos</h2><p>Puedes mover un partido de jornada, cambiar local/visitante, añadir encuentros o eliminarlos. El equipo que descansa se calcula automáticamente según los equipos que juegan.</p></div><div class="fixture-editor-toolbar"><button id="addFixture" class="secondary" type="button">+ Añadir partido</button><button id="resetFixtures" class="ghost" type="button">Restaurar calendario</button></div></div>
+        <div class="notice compact">Si cambias los equipos de un partido que ya tiene resultado, goles, disponibilidad o vídeo, la web te pedirá confirmación y borrará esos datos asociados para evitar estadísticas mezcladas.</div>
+        <div id="fixtureEditor" class="fixture-editor"></div>
+      </section>
+      <section class="panel admin-ref-panel">
+        <div class="panel-head"><div><span class="eyebrow">PARTIDOS</span><h2>Asignar árbitros</h2><p>Los árbitros solo podrán editar los encuentros que tengan asignados.</p></div></div>
+        <div id="refereeAssignments" class="referee-assignments"></div>
+      </section>
+      <section class="panel admin-ref-panel">
+        <div class="panel-head"><div><span class="eyebrow">🔔 RECORDATORIOS</span><h2>Avisos automáticos</h2><p>Configura los avisos que recibirán los jugadores cuando la web esté publicada.</p></div></div>
+        <div class="reminder-grid">
+          <article class="reminder-card">
+            <h3>📅 Disponibilidad</h3>
+            <p>Recordar a los jugadores de los dos equipos que todavía no hayan votado cuándo pueden jugar.</p>
+            <label class="reminder-option"><input id="availabilityReminderEnabled" type="checkbox"> Activar recordatorio</label>
+            <label class="reminder-select"><span>Frecuencia</span><select id="availabilityReminderCadence"><option value="24">Cada 24 horas</option><option value="48">Cada 48 horas</option><option value="72">Cada 72 horas</option></select></label>
+          </article>
+          <article class="reminder-card">
+            <h3>⏰ Partido confirmado</h3>
+            <p>Avisar a los jugadores de ambos equipos antes de un partido cuya fecha y hora ya estén confirmadas.</p>
+            <label class="reminder-option"><input id="matchReminderEnabled" type="checkbox"> Activar recordatorio</label>
+            <label class="reminder-option"><input id="matchReminder24" type="checkbox"> 24 horas antes</label>
+            <label class="reminder-option"><input id="matchReminder2" type="checkbox"> 2 horas antes</label>
+          </article>
+        </div>
+        <div class="reminder-actions"><button id="saveReminderSettings" class="secondary" type="button">Guardar configuración</button></div>
+        <div id="reminderSaved" class="saved-msg"></div>
+        <div class="reminder-preview"><strong>Cuando esté online:</strong> los avisos se enviarán únicamente a usuarios registrados vinculados a jugadores. El sistema podrá recordar la disponibilidad a quien no haya votado y avisar del partido cuando tenga fecha confirmada. En esta versión local solo se guarda la configuración, todavía no se envían correos reales.</div>
+      </section>
+      <div class="notice">Esta versión sigue siendo local. La estructura de permisos ya está simulada; para activarla online habrá que conectar Supabase Auth y la base de datos incluida en el paquete.</div>
+    </section>
+  </main>
+
+  <dialog id="goalDialog">
+    <form method="dialog" id="goalForm">
+      <div class="dialog-head"><div><span class="eyebrow">NUEVO EVENTO</span><h2 id="goalTitle">Registrar gol</h2></div><button value="cancel" class="icon-btn" aria-label="Cerrar">✕</button></div>
+      <input type="hidden" id="goalTeamSide" />
+      <label for="scorerSelect">⚽ Goleador</label><select id="scorerSelect" required></select>
+      <label for="assistSelect">🅰️ Asistencia</label><select id="assistSelect"></select>
+      <div id="goalValueNotice" class="notice compact"></div>
+      <div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="confirmGoal" value="default" class="primary">Confirmar gol</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
