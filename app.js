@@ -559,7 +559,38 @@ function renderMatchParticipants(f,state){
     if(input.checked)manual.add(name);else manual.delete(name);current.participants=[...manual];saveMatchState(current);renderLive();refreshDataViews();
   }));
 }
-function updateSpecialRule(){const el=$('#specialRule');el.className='special-rule';if(isDiceActive()){el.classList.add('dice');el.textContent='🎲 Dado Kings League activo';return}if(isDoubleGoalActive()){el.classList.add('double');el.textContent='⚡ GOL DOBLE activo · últimos 2 minutos';return}el.textContent='Tiempo normal'}
+function specialRuleLabel(){if(isDiceActive())return '🎲 Dado Kings League activo';if(isDoubleGoalActive())return '⚡ GOL DOBLE · últimos 2 minutos';return 'Tiempo normal'}
+function updateSpecialRule(){
+  const label=specialRuleLabel(),el=$('#specialRule');
+  if(el){el.className='special-rule';if(isDiceActive())el.classList.add('dice');if(isDoubleGoalActive())el.classList.add('double');el.textContent=label}
+  const mobile=$('#mobileSpecialRule');if(mobile){mobile.className='mobile-rule-badge';if(isDiceActive())mobile.classList.add('dice');if(isDoubleGoalActive())mobile.classList.add('double');mobile.textContent=label}
+}
+function isMobileRefereeViewport(){return window.matchMedia?.('(max-width: 760px)').matches}
+function mobilePlayerChoiceHtml(name,attr){
+  const photo=playerPhoto(name),initials=name.split(' ').map(x=>x[0]).slice(0,2).join(''),meta=allPlayers.find(p=>p.name===name),team=meta?teams[meta.key]:null;
+  return `<button class="mobile-player-choice" type="button" ${attr}="${escapeHtml(name)}"><span class="mobile-choice-avatar">${photo?`<img src="${photo}" alt="Foto de ${escapeHtml(name)}">`:escapeHtml(initials)}</span><span class="mobile-choice-copy"><strong>${escapeHtml(name)}</strong><small>${team?escapeHtml(team.name):''}</small></span></button>`
+}
+function goalPickerPlayers(teamKey,state){
+  const roster=playersOf(teamKey),manual=new Set(state?.participants||[]),auto=automaticParticipantNames(state),manualForTeam=roster.filter(name=>manual.has(name));
+  if(!manualForTeam.length)return roster;
+  return roster.filter(name=>manual.has(name)||auto.has(name));
+}
+function renderMobileReferee(f,s,editable){
+  const wrap=$('#mobileRefereeMode'),view=$('#view-directo');if(!wrap||!view)return;
+  const active=!!editable&&isMobileRefereeViewport();wrap.hidden=!active;view.classList.toggle('referee-mobile-active',active);
+  if(!active){view.classList.remove('mobile-acta-open');return}
+  $('#mobileLiveHalf').textContent=`${live.half}ª PARTE`;$('#mobileTimer').textContent=timeText(live.remaining);
+  $('#mobileHomeLogo').src=teams[f.home].logo;$('#mobileAwayLogo').src=teams[f.away].logo;$('#mobileHomeName').textContent=teams[f.home].name;$('#mobileAwayName').textContent=teams[f.away].name;$('#mobileHomeScore').textContent=s.homeScore;$('#mobileAwayScore').textContent=s.awayScore;
+  $('#mobileStartPause').textContent=live.running?'⏸ Pausar':'▶ Iniciar';$('#mobileHalfSwitch').textContent=live.half===1?'Ir a 2ª parte':'Ir a 1ª parte';
+  $('#mobileHomeGoal').textContent=isDoubleGoalActive()?'⚡ GOL x2':'⚽ GOL';$('#mobileAwayGoal').textContent=isDoubleGoalActive()?'⚡ GOL x2':'⚽ GOL';
+  const adminJump=$('#mobileAdminTimeJump');if(adminJump)adminJump.hidden=!isAdmin();
+  if(isAdmin()&&document.activeElement!==$('#mobileJumpMinute')&&document.activeElement!==$('#mobileJumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#mobileJumpMinute').value=Math.floor(elapsed/60);$('#mobileJumpSecond').value=elapsed%60}
+  const canCorrectFinished=s.finished&&isAdmin();$('#mobileHomeGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileAwayGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileUndoGoal').disabled=!s.events?.length||(s.finished&&!canCorrectFinished);$('#mobileFinishMatch').disabled=!!s.finished;
+  $('#mobileMvpBtn').textContent=s.mvp?`⭐ MVP · ${s.mvp}`:'⭐ Elegir MVP';
+  updateSpecialRule();
+}
+let mobileToastTimer=null;
+function showMobileLiveToast(text){const box=$('#mobileLiveToast');if(!box||!isMobileRefereeViewport())return;$('#mobileLiveToastText').textContent=text;box.hidden=false;clearTimeout(mobileToastTimer);mobileToastTimer=setTimeout(()=>{box.hidden=true},6500)}
 function renderLive(){
   const f=findFixture(live.matchId),s=getMatchState(),editable=canManageMatch(live.matchId);if(!f)return;
   $('#liveEyebrow').textContent=s.finished?'ACTA DEL PARTIDO':(editable?'MODO ÁRBITRO':'EN DIRECTO');$('#liveDescription').textContent=s.finished?'Consulta el resultado, los goles, las asistencias y el MVP. El administrador puede corregir el acta incluso después de finalizar el partido.':(editable?'Tienes permisos para gestionar este partido.':'Sigue el marcador, el tiempo y los eventos. Solo el árbitro asignado puede editar.');
@@ -567,7 +598,7 @@ function renderLive(){
   const adminTimeJump=$('#adminTimeJump');if(adminTimeJump)adminTimeJump.hidden=!isAdmin();
   if(isAdmin()&&document.activeElement!==$('#jumpMinute')&&document.activeElement!==$('#jumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#jumpMinute').value=Math.floor(elapsed/60);$('#jumpSecond').value=elapsed%60;}
   $('#timer').textContent=timeText(live.remaining);$('#homeName').textContent=teams[f.home].name;$('#awayName').textContent=teams[f.away].name;$('#homeLogo').src=teams[f.home].logo;$('#awayLogo').src=teams[f.away].logo;$('#homeScore').textContent=s.homeScore;$('#awayScore').textContent=s.awayScore;
-  $('#half1Btn').classList.toggle('active',live.half===1);$('#half2Btn').classList.toggle('active',live.half===2);const liveStatus=s.finished?'Partido finalizado':(s.started?`● EN JUEGO · ${live.half}ª parte`:availabilityStatus(live.matchId));$('#liveMatchLabel').textContent=liveStatus+(editable?' · Edición habilitada':' · Solo lectura');updateSpecialRule();
+  $('#half1Btn').classList.toggle('active',live.half===1);$('#half2Btn').classList.toggle('active',live.half===2);const liveStatus=s.finished?'Partido finalizado':(s.started?`● EN JUEGO · ${live.half}ª parte`:availabilityStatus(live.matchId));$('#liveMatchLabel').textContent=liveStatus+(editable?' · Edición habilitada':' · Solo lectura');updateSpecialRule();renderMobileReferee(f,s,editable);
   const canEditEvents=editable&&(!s.finished||isAdmin());
   $('#eventsList').innerHTML=s.events.length?s.events.slice().reverse().map(e=>`<div class="event-item"><div><b>⚽ ${playerProfileButton(e.scorer)}</b> · ${e.team}<small>${e.assist?`🅰️ ${playerProfileButton(e.assist)} · `:''}${e.scoreAfter?`Marcador ${e.scoreAfter}`:''}${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ Gol doble (+2 competición)':''}</small></div><div><strong>${e.half}ª · ${e.minute}'</strong>${canEditEvents?`<button class="ghost compact-btn" type="button" data-edit-goal="${e.id}">Editar</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay eventos.</div>';
   $$('#eventsList [data-edit-goal]').forEach(btn=>btn.addEventListener('click',()=>openEditGoal(btn.dataset.editGoal)));
@@ -585,10 +616,26 @@ $('#half2Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopT
 $('#applyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#jumpMinute').value||0)),sec=Math.floor(Number($('#jumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;renderLive()});
 $('#matchSelect').addEventListener('change',e=>{stopTimer();live.matchId=e.target.value;live.half=1;live.remaining=1200;renderLive()});
 $('#viewerStreamBtn').addEventListener('click',()=>{if($('#streamMatchSelect'))$('#streamMatchSelect').value=live.matchId;renderStreaming();navigate('streaming')});
-let goalSide='home';
-function openGoal(side){if(!requireMatchEdit())return;const f=findFixture(live.matchId),teamKey=f[side];goalSide=side;$('#goalTeamSide').value=side;$('#goalTitle').textContent=`Gol · ${teams[teamKey].name}`;const ps=playersOf(teamKey);$('#scorerSelect').innerHTML=ps.map(p=>`<option>${p}</option>`).join('');$('#assistSelect').innerHTML='<option value="">Sin asistencia</option>'+ps.map(p=>`<option>${p}</option>`).join('');$('#goalValueNotice').textContent=isDoubleGoalActive()?'⚡ Últimos 2 minutos: 1 gol real sumará 2 goles al marcador y a la competición.':isDiceActive()?'Dado Kings League activo. El gol contará normal hasta definir su mecánica.':'Gol normal: 1 gol real = 1 gol de competición.';$('#goalDialog').showModal()}
+let goalSide='home',mobileGoalScorer='';
+function renderMobileGoalScorers(teamKey){
+  mobileGoalScorer='';$('#mobileGoalStepTitle').textContent='¿Quién ha marcado?';$('#mobileGoalStepHelp').textContent='Toca al goleador';$('#mobileGoalBackStep').hidden=true;
+  const players=goalPickerPlayers(teamKey,getMatchState());$('#mobileGoalPlayers').innerHTML=players.map(name=>mobilePlayerChoiceHtml(name,'data-mobile-scorer')).join('');
+}
+function renderMobileGoalAssists(teamKey,scorer){
+  mobileGoalScorer=scorer;$('#mobileGoalStepTitle').textContent=`Gol de ${scorer}`;$('#mobileGoalStepHelp').textContent='¿Quién ha dado la asistencia?';$('#mobileGoalBackStep').hidden=false;
+  const players=goalPickerPlayers(teamKey,getMatchState()).filter(name=>name!==scorer);$('#mobileGoalPlayers').innerHTML=`<button class="mobile-player-choice no-assist" type="button" data-mobile-assist=""><span class="mobile-choice-avatar">—</span><span class="mobile-choice-copy"><strong>Sin asistencia</strong><small>Gol sin asistente</small></span></button>`+players.map(name=>mobilePlayerChoiceHtml(name,'data-mobile-assist')).join('');
+}
+function openGoal(side){
+  if(!requireMatchEdit())return;const f=findFixture(live.matchId),teamKey=f[side];goalSide=side;$('#goalTeamSide').value=side;$('#goalTitle').textContent=`Gol · ${teams[teamKey].name}`;const ps=playersOf(teamKey);$('#scorerSelect').innerHTML=ps.map(p=>`<option>${p}</option>`).join('');$('#assistSelect').innerHTML='<option value="">Sin asistencia</option>'+ps.map(p=>`<option>${p}</option>`).join('');$('#goalValueNotice').textContent=isDoubleGoalActive()?'⚡ Últimos 2 minutos: 1 gol real sumará 2 goles al marcador y a la competición.':isDiceActive()?'Dado Kings League activo. El gol contará normal hasta definir su mecánica.':'Gol normal: 1 gol real = 1 gol de competición.';
+  const dialog=$('#goalDialog');dialog.classList.toggle('mobile-wizard-active',isMobileRefereeViewport());if(isMobileRefereeViewport())renderMobileGoalScorers(teamKey);dialog.showModal()
+}
+function commitGoal(scorer,assist=''){
+  if(!requireMatchEdit())return false;const f=findFixture(live.matchId),s=getMatchState(),teamKey=f[goalSide];if(!scorer)return false;if(assist===scorer&&assist){alert('El goleador y el asistente no pueden ser la misma persona.');return false}const realValue=1,competitionValue=isDoubleGoalActive()?2:1,value=competitionValue;if(!s.finished)s.started=true;s.events.push({id:Date.now(),team:teams[teamKey].name,teamKey,side:goalSide,scorer,assist,value,realValue,competitionValue,doubleGoal:competitionValue===2,half:live.half,minute:elapsedMinute()});recalculateMatchStateFromEvents(s);saveMatchState(s);$('#goalDialog').close();renderLive();refreshDataViews();showMobileLiveToast(`${competitionValue===2?'⚡ ':''}Gol de ${scorer}${assist?` · asistencia de ${assist}`:' · sin asistencia'}`);return true
+}
 $('#homeGoal').addEventListener('click',()=>openGoal('home'));$('#awayGoal').addEventListener('click',()=>openGoal('away'));
-$('#goalForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();if(!requireMatchEdit())return;const f=findFixture(live.matchId),s=getMatchState(),teamKey=f[goalSide],scorer=$('#scorerSelect').value,assist=$('#assistSelect').value;if(assist===scorer&&assist){alert('El goleador y el asistente no pueden ser la misma persona.');return}const realValue=1,competitionValue=isDoubleGoalActive()?2:1,value=competitionValue;if(!s.finished)s.started=true;s.events.push({id:Date.now(),team:teams[teamKey].name,teamKey,side:goalSide,scorer,assist,value,realValue,competitionValue,doubleGoal:competitionValue===2,half:live.half,minute:elapsedMinute()});recalculateMatchStateFromEvents(s);saveMatchState(s);$('#goalDialog').close();renderLive();refreshDataViews()});
+$('#goalForm').addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();commitGoal($('#scorerSelect').value,$('#assistSelect').value)});
+$('#mobileGoalPlayers')?.addEventListener('click',e=>{const scorer=e.target.closest('[data-mobile-scorer]');if(scorer){const f=findFixture(live.matchId),teamKey=f[goalSide];$('#scorerSelect').value=scorer.dataset.mobileScorer;renderMobileGoalAssists(teamKey,scorer.dataset.mobileScorer);return}const assist=e.target.closest('[data-mobile-assist]');if(assist){$('#assistSelect').value=assist.dataset.mobileAssist||'';commitGoal(mobileGoalScorer,assist.dataset.mobileAssist||'')}});
+$('#mobileGoalBackStep')?.addEventListener('click',()=>{const f=findFixture(live.matchId);if(f)renderMobileGoalScorers(f[goalSide])});
 $('#undoGoal').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState();if(s.finished&&!isAdmin()){alert('Una vez finalizado el partido, solo un administrador puede corregir el acta.');return}const e=s.events.pop();if(!e)return;recalculateMatchStateFromEvents(s);saveMatchState(s);renderLive();refreshDataViews()});
 function populateEditGoalPlayers(side,selectedScorer='',selectedAssist=''){
   const f=findFixture(live.matchId),teamKey=f?.[side];if(!teamKey)return;
@@ -609,6 +656,23 @@ $('#deleteGoal')?.addEventListener('click',()=>{const s=getMatchState();if(s.fin
 
 $('#finishMatch').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState();if(!confirm('¿Finalizar el partido? El acta quedará marcada como finalizada.'))return;s.finished=true;s.started=false;saveMatchState(s);stopTimer();renderLive();refreshDataViews()});
 $('#saveMvp').addEventListener('click',()=>{if(!requireMatchEdit())return;const v=$('#mvpSelect').value;if(!v)return;const s=getMatchState();s.mvp=v;saveMatchState(s);renderLive();refreshDataViews()});
+
+function openMobileMvp(){
+  if(!requireMatchEdit())return;const f=findFixture(live.matchId),s=getMatchState();if(!f)return;const all=allMatchPlayers(f),participants=participantNames(s),hasManual=(s.participants||[]).length>0,players=hasManual?all.filter(name=>participants.has(name)):all;$('#mobileMvpPlayers').innerHTML=players.map(name=>mobilePlayerChoiceHtml(name,'data-mobile-mvp')).join('');$('#mobileMvpDialog').showModal()
+}
+$('#mobileMvpPlayers')?.addEventListener('click',e=>{const b=e.target.closest('[data-mobile-mvp]');if(!b)return;const s=getMatchState();s.mvp=b.dataset.mobileMvp;saveMatchState(s);$('#mobileMvpDialog').close();renderLive();refreshDataViews();showMobileLiveToast(`⭐ MVP: ${s.mvp}`)});
+$('#mobileMvpBtn')?.addEventListener('click',openMobileMvp);
+$('#mobileHomeGoal')?.addEventListener('click',()=>openGoal('home'));$('#mobileAwayGoal')?.addEventListener('click',()=>openGoal('away'));
+$('#mobileMoreBtn')?.addEventListener('click',()=>{const panel=$('#mobileMorePanel'),btn=$('#mobileMoreBtn'),open=panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',String(open));btn.textContent=open?'✕ Cerrar':'⋯ Más'});
+$('#mobileStartPause')?.addEventListener('click',()=>{(live.running?$('#pauseTimer'):$('#startTimer')).click()});
+$('#mobileHalfSwitch')?.addEventListener('click',()=>{(live.half===1?$('#half2Btn'):$('#half1Btn')).click()});
+$('#mobileUndoGoal')?.addEventListener('click',()=>$('#undoGoal').click());
+$('#mobileFinishMatch')?.addEventListener('click',()=>$('#finishMatch').click());
+$('#mobileStreamBtn')?.addEventListener('click',()=>$('#viewerStreamBtn').click());
+$('#mobileActaBtn')?.addEventListener('click',()=>{const view=$('#view-directo'),open=!view.classList.contains('mobile-acta-open');view.classList.toggle('mobile-acta-open',open);$('#mobileActaBtn').textContent=open?'✕ Cerrar acta':'📋 Ver acta'});
+$('#mobileApplyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#mobileJumpMinute').value||0)),sec=Math.floor(Number($('#mobileJumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;renderLive()});
+$('#mobileToastUndo')?.addEventListener('click',()=>{clearTimeout(mobileToastTimer);$('#mobileLiveToast').hidden=true;$('#undoGoal').click()});
+window.addEventListener('resize',()=>{if(document.body.dataset.view==='directo')renderLive()});
 
 function youtubeId(url){
   if(!url)return null;

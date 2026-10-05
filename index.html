@@ -200,6 +200,53 @@
 
     <section class="view" id="view-directo">
       <button id="liveBack" class="ghost back-btn" type="button">← Volver</button>
+
+      <section id="mobileRefereeMode" class="mobile-referee-mode" hidden aria-label="Marcador rápido del árbitro">
+        <div class="mobile-live-status">
+          <span id="mobileLiveHalf" class="mobile-half-badge">1ª PARTE</span>
+          <strong id="mobileTimer" class="mobile-live-timer">20:00</strong>
+          <span id="mobileSpecialRule" class="mobile-rule-badge">Tiempo normal</span>
+        </div>
+        <div class="mobile-scoreboard">
+          <div class="mobile-score-side">
+            <img id="mobileHomeLogo" alt="Escudo local">
+            <strong id="mobileHomeName">Local</strong>
+            <span id="mobileHomeScore" class="mobile-score-number">0</span>
+            <button id="mobileHomeGoal" class="mobile-goal-button" type="button">⚽ GOL</button>
+          </div>
+          <div class="mobile-score-divider">—</div>
+          <div class="mobile-score-side">
+            <img id="mobileAwayLogo" alt="Escudo visitante">
+            <strong id="mobileAwayName">Visitante</strong>
+            <span id="mobileAwayScore" class="mobile-score-number">0</span>
+            <button id="mobileAwayGoal" class="mobile-goal-button" type="button">⚽ GOL</button>
+          </div>
+        </div>
+        <div class="mobile-primary-actions">
+          <button id="mobileMvpBtn" class="secondary" type="button">⭐ Elegir MVP</button>
+          <button id="mobileMoreBtn" class="ghost" type="button" aria-expanded="false">⋯ Más</button>
+        </div>
+        <div id="mobileMorePanel" class="mobile-more-panel" hidden>
+          <div class="mobile-control-grid">
+            <button id="mobileStartPause" class="primary" type="button">▶ Iniciar</button>
+            <button id="mobileHalfSwitch" class="secondary" type="button">Ir a 2ª parte</button>
+            <button id="mobileUndoGoal" class="ghost" type="button">↶ Último gol</button>
+            <button id="mobileActaBtn" class="ghost" type="button">📋 Ver acta</button>
+            <button id="mobileStreamBtn" class="ghost" type="button">▶ Streaming</button>
+            <button id="mobileFinishMatch" class="secondary" type="button">🏁 Finalizar</button>
+          </div>
+          <div id="mobileAdminTimeJump" class="mobile-admin-jump admin-only-block" hidden>
+            <strong>⚙️ Ir a un minuto</strong>
+            <div class="mobile-time-inputs">
+              <label>Minuto<input id="mobileJumpMinute" type="number" min="0" max="20" value="0"></label>
+              <label>Segundo<input id="mobileJumpSecond" type="number" min="0" max="59" value="0"></label>
+            </div>
+            <button id="mobileApplyMatchTime" class="ghost full" type="button">Aplicar tiempo</button>
+          </div>
+        </div>
+        <div id="mobileLiveToast" class="mobile-live-toast" hidden aria-live="polite"><span id="mobileLiveToastText"></span><button id="mobileToastUndo" type="button">Deshacer</button></div>
+      </section>
+
       <div class="page-head"><div><span id="liveEyebrow" class="eyebrow">EN DIRECTO</span><h1 id="liveTitle">Partido en directo</h1><p id="liveDescription">Sigue el marcador y los eventos en tiempo real.</p></div><button id="viewerStreamBtn" class="secondary live-stream-button" type="button">▶ Ver streaming</button></div>
       <div class="live-layout">
         <aside class="control-card">
@@ -391,10 +438,26 @@
     <form method="dialog" id="goalForm">
       <div class="dialog-head"><div><span class="eyebrow">NUEVO EVENTO</span><h2 id="goalTitle">Registrar gol</h2></div><button value="cancel" class="icon-btn" aria-label="Cerrar">✕</button></div>
       <input type="hidden" id="goalTeamSide" />
-      <label for="scorerSelect">⚽ Goleador</label><select id="scorerSelect" required></select>
-      <label for="assistSelect">🅰️ Asistencia</label><select id="assistSelect"></select>
+      <div id="mobileGoalWizard" class="mobile-goal-wizard">
+        <div class="mobile-wizard-head"><strong id="mobileGoalStepTitle">¿Quién ha marcado?</strong><small id="mobileGoalStepHelp">Toca al goleador</small></div>
+        <div id="mobileGoalPlayers" class="mobile-player-picker"></div>
+        <button id="mobileGoalBackStep" class="ghost full" type="button" hidden>← Cambiar goleador</button>
+      </div>
+      <div class="desktop-goal-fields">
+        <label for="scorerSelect">⚽ Goleador</label><select id="scorerSelect" required></select>
+        <label for="assistSelect">🅰️ Asistencia</label><select id="assistSelect"></select>
+      </div>
       <div id="goalValueNotice" class="notice compact"></div>
-      <div class="dialog-actions"><button value="cancel" class="secondary">Cancelar</button><button id="confirmGoal" value="default" class="primary">Confirmar gol</button></div>
+      <div class="dialog-actions desktop-goal-actions"><button value="cancel" class="secondary">Cancelar</button><button id="confirmGoal" value="default" class="primary">Confirmar gol</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="mobileMvpDialog" class="mobile-choice-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><span class="eyebrow">MVP</span><h2>⭐ ¿Quién ha sido el MVP?</h2></div><button value="cancel" class="icon-btn" aria-label="Cerrar">✕</button></div>
+      <p class="muted">Toca un jugador para guardarlo directamente.</p>
+      <div id="mobileMvpPlayers" class="mobile-player-picker"></div>
+      <div class="dialog-actions"><button value="cancel" class="secondary full">Cancelar</button></div>
     </form>
   </dialog>
 
