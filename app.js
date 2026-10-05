@@ -2,6 +2,10 @@ const supabaseClient = window.supabase.createClient(
   window.LIGA_SUPABASE.url,
   window.LIGA_SUPABASE.anonKey
 );
+
+let authStateUser = null;
+let authReady = false;
+
 const LEAGUE_EMAIL = 'ligainterna2026@gmail.com';
 
 const teams = {
@@ -56,9 +60,35 @@ function seedAccounts(){
 }
 function accounts(){seedAccounts();return store.get('league:accounts',[])}
 function saveAccounts(list){store.set('league:accounts',list)}
-function currentEmail(){return store.get('league:sessionEmail',null)}
-function currentUser(){const email=currentEmail();return email?accounts().find(a=>a.email.toLowerCase()===String(email).toLowerCase())||null:null}
-function setSession(email){email?store.set('league:sessionEmail',email):store.remove('league:sessionEmail');refreshAuthUI();refreshPermissionViews()}
+function currentUser(){return authStateUser}
+async function loadCurrentUserFromSupabase(authUser=null){
+  try{
+    const user=authUser || (await supabaseClient.auth.getUser()).data.user;
+    if(!user){authStateUser=null;authReady=true;refreshPermissionViews();return null}
+    const [{data:profile},{data:roles},{data:player}] = await Promise.all([
+      supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
+      supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
+      supabaseClient.from('players').select('id,name,team_id,captain,photo_url').eq('user_id',user.id).maybeSingle()
+    ]);
+    authStateUser={
+      id:user.id,
+      email:user.email||'',
+      displayName:profile?.display_name || user.user_metadata?.display_name || (user.email||'').split('@')[0],
+      linkedPlayer:player?.name || null,
+      linkedPlayerId:player?.id || null,
+      roles:(roles||[]).map(r=>r.role)
+    };
+    authReady=true;
+    refreshPermissionViews();
+    return authStateUser;
+  }catch(err){
+    console.error('Error cargando sesión',err);
+    authStateUser=null;authReady=true;refreshPermissionViews();return null;
+  }
+}
+async function setSession(email){
+  if(!email){await supabaseClient.auth.signOut();authStateUser=null;refreshPermissionViews();return}
+}
 function hasRole(role,user=currentUser()){return !!user?.roles?.includes(role)}
 function isAdmin(){return hasRole('admin')}
 function isPlayer(){return hasRole('player')}
@@ -71,11 +101,20 @@ function availablePlayersForRegistration(){
   const claimed=claimedPlayerNames();
   return allPlayers.filter(p=>!claimed.has(p.name));
 }
-function renderRegisterPlayerOptions(){
+async function renderRegisterPlayerOptions(){
   const select=$('#registerPlayer'); if(!select)return;
-  const available=availablePlayersForRegistration();
-  const byTeam=Object.entries(teams).map(([key,t])=>({key,t,players:available.filter(p=>p.key===key)})).filter(g=>g.players.length);
-  select.innerHTML='<option value="">Selecciona tu jugador</option>'+byTeam.map(g=>`<optgroup label="${escapeHtml(g.t.name)}">${g.players.map(p=>`<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}${p.captain?' · Capitán':''}</option>`).join('')}</optgroup>`).join('');
+  select.disabled=true;
+  select.innerHTML='<option value="">Cargando jugadores...</option>';
+  const {data,error}=await supabaseClient.from('signup_players').select('id,name,team_id,captain,available').eq('available',true).order('team_id').order('name');
+  if(error){
+    console.error(error);
+    select.innerHTML='<option value="">No se pudieron cargar los jugadores</option>';
+    const msg=$('#registerMsg'); if(msg)msg.textContent='No se pudo conectar con la lista de jugadores. Recarga la página.';
+    return;
+  }
+  const available=data||[];
+  const byTeam=Object.entries(teams).map(([key,t])=>({key,t,players:available.filter(p=>p.team_id===key)})).filter(g=>g.players.length);
+  select.innerHTML='<option value="">Selecciona tu jugador</option>'+byTeam.map(g=>`<optgroup label="${escapeHtml(g.t.name)}">${g.players.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.captain?' · Capitán':''}</option>`).join('')}</optgroup>`).join('');
   select.disabled=!available.length;
   const submit=$('#registerForm button[type="submit"]'); if(submit)submit.disabled=!available.length;
   const msg=$('#registerMsg'); if(msg&&!available.length)msg.textContent='Todos los jugadores ya tienen una cuenta vinculada.';
@@ -146,31 +185,52 @@ function renderAccountPanel(){
   if(!u){$('#accountPanel').innerHTML='<div class="panel"><h2>Estás navegando como visitante</h2><p class="muted">Puedes ver toda la competición, pero no editar datos.</p><button class="primary" type="button" data-open-access>Entrar o registrarse</button></div>';return}
   const playerMeta=u.linkedPlayer?allPlayers.find(p=>p.name===u.linkedPlayer):null;
   $('#accountPanel').innerHTML=`<section class="panel account-summary"><div class="account-summary-main"><span class="account-big-avatar">${playerMeta?escapeHtml(playerMeta.name.split(' ').map(x=>x[0]).slice(0,2).join('')):'👤'}</span><div><span class="eyebrow">SESIÓN ACTIVA</span><h2>${escapeHtml(u.linkedPlayer||u.displayName||'Usuario')}</h2><p class="muted">${escapeHtml(u.email)}</p><div class="role-row">${roleBadges(u)}</div></div></div><div class="account-actions">${u.linkedPlayer?`<button class="secondary" type="button" data-player-profile="${escapeHtml(u.linkedPlayer)}">Abrir mi ficha</button>`:''}${isAdmin()?'<button class="ghost" type="button" data-open-admin>Panel de administración</button>':''}<button id="logoutBtn" class="ghost" type="button">Cerrar sesión</button></div></section><div class="notice">${u.linkedPlayer?'Tu cuenta está vinculada a '+escapeHtml(u.linkedPlayer)+'. El rol Jugador se activa automáticamente; los permisos de Árbitro o Administrador solo los asigna el administrador principal.':'Esta cuenta no está vinculada a un jugador.'}</div>`;
-  $('#logoutBtn')?.addEventListener('click',()=>{setSession(null);navigate('inicio')});
+  $('#logoutBtn')?.addEventListener('click',async()=>{await setSession(null);navigate('inicio')});
   $('[data-open-admin]')?.addEventListener('click',()=>navigate('admin'));
 }
 document.addEventListener('click',e=>{const a=e.target.closest('[data-open-access]');if(a)navigate('acceso')});
 
-$('#loginForm').addEventListener('submit',e=>{
+$('#loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const email=$('#loginEmail').value.trim().toLowerCase(), password=$('#loginPassword').value;
-  const u=accounts().find(a=>a.email.toLowerCase()===email);
-  if(!u||u.password===null||u.password!==password){$('#loginMsg').textContent='Correo o contraseña de demo incorrectos.';return}
-  setSession(u.email);$('#loginMsg').textContent='Sesión iniciada.';navigate('cuenta');
+  const msg=$('#loginMsg');
+  msg.textContent='Entrando...';
+  const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){msg.textContent='No se ha podido iniciar sesión. Revisa el correo y la contraseña.';return}
+  await loadCurrentUserFromSupabase(data.user);
+  msg.textContent='Sesión iniciada.';
+  navigate('cuenta');
 });
-$('#registerForm').addEventListener('submit',e=>{
+$('#registerForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const email=$('#registerEmail').value.trim().toLowerCase(),password=$('#registerPassword').value,player=$('#registerPlayer').value;
-  if(!/^\S+@\S+\.\S+$/.test(email)){ $('#registerMsg').textContent='Introduce un correo válido.'; return; }
-  if(password.length<6){$('#registerMsg').textContent='La contraseña de demo debe tener al menos 6 caracteres.';return}
-  if(!player||!allPlayers.some(p=>p.name===player)){ $('#registerMsg').textContent='Selecciona qué jugador eres.'; return; }
-  const list=accounts();
-  if(list.some(a=>a.email.toLowerCase()===email)){ $('#registerMsg').textContent='Ya existe una cuenta con ese correo.'; return; }
-  if(list.some(a=>a.linkedPlayer===player)){ $('#registerMsg').textContent='Ese jugador ya está vinculado a otra cuenta. Elige otro o habla con el administrador.';renderRegisterPlayerOptions();return; }
-  list.push({id:`u-${Date.now()}`,email,password,displayName:player,linkedPlayer:player,roles:['player'],createdAt:new Date().toISOString()});
-  saveAccounts(list);setSession(email);$('#registerMsg').textContent='Cuenta creada y jugador vinculado.';renderRegisterPlayerOptions();navigate('cuenta');
+  const email=$('#registerEmail').value.trim().toLowerCase(),password=$('#registerPassword').value,playerId=$('#registerPlayer').value;
+  const msg=$('#registerMsg');
+  if(!/^\S+@\S+\.\S+$/.test(email)){ msg.textContent='Introduce un correo válido.'; return; }
+  if(password.length<6){msg.textContent='La contraseña debe tener al menos 6 caracteres.';return}
+  if(!playerId){msg.textContent='Selecciona qué jugador eres.';return}
+  const selected=$('#registerPlayer').selectedOptions[0];
+  const displayName=selected?.textContent?.replace(' · Capitán','').trim() || email.split('@')[0];
+  msg.textContent='Creando cuenta...';
+  const {data,error}=await supabaseClient.auth.signUp({
+    email,password,
+    options:{data:{player_id:playerId,display_name:displayName}}
+  });
+  if(error){
+    const text=String(error.message||'').toLowerCase();
+    msg.textContent=text.includes('already')?'Ese correo ya tiene una cuenta.':text.includes('jugador')?'Ese jugador ya está vinculado a otra cuenta.':'No se pudo crear la cuenta. Prueba de nuevo.';
+    await renderRegisterPlayerOptions();
+    return;
+  }
+  await renderRegisterPlayerOptions();
+  if(data.session){
+    await loadCurrentUserFromSupabase(data.user);
+    msg.textContent='Cuenta creada y jugador vinculado.';
+    navigate('cuenta');
+  }else{
+    msg.textContent='Cuenta creada. Revisa tu correo para confirmar la cuenta y después inicia sesión.';
+  }
 });
-$('#demoAdminLogin').addEventListener('click',()=>{setSession(LEAGUE_EMAIL);navigate('admin')});
+$('#demoAdminLogin')?.closest('.demo-login-panel')?.setAttribute('hidden','');
 
 function defaultMatchState(){return {homeScore:0,awayScore:0,events:[],mvp:null,finished:false,started:false}}
 function getStateFor(id){return store.get(`match:${id}`,defaultMatchState())}
@@ -677,6 +737,19 @@ function refreshDataViews(){renderHomeDashboard();renderTeams();renderRankings()
 seedAccounts();
 document.body.dataset.view='inicio';
 renderHomeTeams();renderStandings();renderRounds();renderTeams();renderRankings();populateMatchSelects();renderLive();renderStreaming();renderAvailability();renderIdeal();renderHomeDashboard();renderRegisterPlayerOptions();refreshAuthUI();
+
+// Ajustes de texto del antiguo prototipo local.
+const loginPassLabel=document.querySelector('label[for="loginPassword"]');
+const registerPassLabel=document.querySelector('label[for="registerPassword"]');
+if(loginPassLabel)loginPassLabel.textContent='Contraseña';
+if(registerPassLabel)registerPassLabel.textContent='Contraseña';
+const accessIntro=document.querySelector('#view-acceso .page-head p');
+if(accessIntro)accessIntro.textContent='Inicia sesión o crea tu cuenta. Los jugadores quedan vinculados a su ficha al registrarse.';
+
+supabaseClient.auth.onAuthStateChange((_event,session)=>{
+  loadCurrentUserFromSupabase(session?.user||null);
+});
+loadCurrentUserFromSupabase();
 
 // v6 · configuración local de recordatorios (el envío real se conectará al backend al publicar)
 function reminderSettings(){return store.get('league:reminders',{availabilityEnabled:true,availabilityCadence:'24',matchEnabled:true,match24:true,match2:true})}
