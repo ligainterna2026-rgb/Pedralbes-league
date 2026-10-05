@@ -697,17 +697,108 @@ function renderFixtureEditor(){
     fixtures=fixtures.filter(x=>x.id!==id);refreshAfterFixtureEdit();
   }));
 }
-function renderAdmin(){
+async function renderAdmin(){
   if(!isAdmin())return;
   renderFixtureEditor();
-  const list=accounts();
-  $('#adminUsers').innerHTML=list.map(u=>{const self=u.email.toLowerCase()===LEAGUE_EMAIL;const claimed=claimedPlayerNames(u.email);return `<article class="admin-user-card" data-user-id="${escapeHtml(u.id)}"><div class="admin-user-head"><div><strong>${escapeHtml(u.email)}</strong><span class="muted">${u.linkedPlayer?`Jugador: ${escapeHtml(u.linkedPlayer)}`:'Cuenta administrativa sin jugador'}</span></div><div class="role-row">${roleBadges(u)}</div></div><div class="admin-user-controls"><label>Corregir jugador<select data-user-player ${self&&!u.linkedPlayer?'disabled':''}><option value="">Sin jugador</option>${allPlayers.map(p=>`<option value="${escapeHtml(p.name)}" ${u.linkedPlayer===p.name?'selected':''} ${claimed.has(p.name)&&u.linkedPlayer!==p.name?'disabled':''}>${escapeHtml(p.name)} · ${p.team}${claimed.has(p.name)&&u.linkedPlayer!==p.name?' · ocupado':''}</option>`).join('')}</select></label><div class="role-checks">${u.linkedPlayer?'<label><input type="checkbox" data-role="player" checked disabled> Jugador</label>':''}<label><input type="checkbox" data-role="referee" ${u.roles?.includes('referee')?'checked':''}> Árbitro</label><label><input type="checkbox" data-role="admin" ${u.roles?.includes('admin')?'checked':''} ${self?'disabled title="La cuenta principal conserva Admin"':''}> Admin</label></div><button class="secondary" type="button" data-save-user>Guardar permisos</button></div></article>`}).join('');
-  $$('#adminUsers [data-save-user]').forEach(btn=>btn.addEventListener('click',()=>{const card=btn.closest('[data-user-id]'),id=card.dataset.userId,current=accounts(),idx=current.findIndex(a=>a.id===id);if(idx<0)return;const u=current[idx],select=card.querySelector('[data-user-player]'),linked=select&&!select.disabled?select.value:(u.linkedPlayer||''),roles=[...card.querySelectorAll('[data-role]:checked:not(:disabled)')].map(x=>x.dataset.role);if(u.email.toLowerCase()===LEAGUE_EMAIL&&!roles.includes('admin'))roles.push('admin');if(linked&&!roles.includes('player'))roles.unshift('player');const conflict=current.some(a=>a.id!==u.id&&a.linkedPlayer===linked&&linked);if(conflict){alert('Ese jugador ya está vinculado a otra cuenta.');return}u.linkedPlayer=linked||null;u.displayName=linked||u.displayName;u.roles=[...new Set(roles)];current[idx]=u;saveAccounts(current);renderRegisterPlayerOptions();renderAdmin();refreshAuthUI();refreshPermissionViews()}));
+  const usersWrap=$('#adminUsers');
+  if(usersWrap)usersWrap.innerHTML='<div class="empty-state">Cargando usuarios de Supabase...</div>';
+
+  const [{data:profiles,error:profilesError},{data:roles,error:rolesError},{data:dbPlayers,error:playersError}] = await Promise.all([
+    supabaseClient.from('profiles').select('id,email,display_name,created_at').order('created_at',{ascending:true}),
+    supabaseClient.from('user_roles').select('user_id,role'),
+    supabaseClient.from('players').select('id,name,team_id,user_id,captain').order('team_id').order('name')
+  ]);
+
+  if(profilesError||rolesError||playersError){
+    console.error('Error cargando usuarios',profilesError||rolesError||playersError);
+    if(usersWrap)usersWrap.innerHTML='<div class="empty-state">No se pudieron cargar los usuarios desde Supabase. Recarga la página.</div>';
+    return;
+  }
+
+  const list=(profiles||[]).map(p=>{
+    const player=(dbPlayers||[]).find(x=>x.user_id===p.id)||null;
+    return {
+      id:p.id,
+      email:p.email||'',
+      displayName:p.display_name||((p.email||'').split('@')[0]),
+      linkedPlayer:player?.name||null,
+      linkedPlayerId:player?.id||null,
+      roles:(roles||[]).filter(r=>r.user_id===p.id).map(r=>r.role)
+    };
+  });
+
+  if(usersWrap){
+    usersWrap.innerHTML=list.length?list.map(u=>{
+      const self=u.email.toLowerCase()===LEAGUE_EMAIL;
+      return `<article class="admin-user-card" data-user-id="${escapeHtml(u.id)}">
+        <div class="admin-user-head"><div><strong>${escapeHtml(u.email)}</strong><span class="muted">${u.linkedPlayer?`Jugador: ${escapeHtml(u.linkedPlayer)}`:'Cuenta administrativa sin jugador'}</span></div><div class="role-row">${roleBadges(u)}</div></div>
+        <div class="admin-user-controls">
+          <label>Corregir jugador<select data-user-player ${self&&!u.linkedPlayer?'disabled':''}>
+            <option value="">Sin jugador</option>
+            ${(dbPlayers||[]).map(p=>{
+              const occupied=!!p.user_id&&p.user_id!==u.id;
+              return `<option value="${escapeHtml(p.id)}" ${u.linkedPlayerId===p.id?'selected':''} ${occupied?'disabled':''}>${escapeHtml(p.name)} · ${escapeHtml(teams[p.team_id]?.name||p.team_id)}${occupied?' · ocupado':''}</option>`;
+            }).join('')}
+          </select></label>
+          <div class="role-checks">
+            ${u.linkedPlayer?'<label><input type="checkbox" data-role="player" checked disabled> Jugador</label>':''}
+            <label><input type="checkbox" data-role="referee" ${u.roles?.includes('referee')?'checked':''}> Árbitro</label>
+            <label><input type="checkbox" data-role="admin" ${u.roles?.includes('admin')?'checked':''} ${self?'disabled title="La cuenta principal conserva Admin"':''}> Admin</label>
+          </div>
+          <button class="secondary" type="button" data-save-user>Guardar permisos</button>
+        </div>
+      </article>`;
+    }).join(''):'<div class="empty-state">Todavía no hay usuarios registrados.</div>';
+  }
+
+  $$('#adminUsers [data-save-user]').forEach(btn=>btn.addEventListener('click',async()=>{
+    const card=btn.closest('[data-user-id]'),id=card.dataset.userId,u=list.find(x=>x.id===id);if(!u)return;
+    const select=card.querySelector('[data-user-player]');
+    const selectedPlayerId=select&&!select.disabled?select.value:(u.linkedPlayerId||'');
+    const self=u.email.toLowerCase()===LEAGUE_EMAIL;
+    const selectedRoles=[...card.querySelectorAll('[data-role]:checked:not(:disabled)')].map(x=>x.dataset.role);
+    if(self&&!selectedRoles.includes('admin'))selectedRoles.push('admin');
+    if(selectedPlayerId&&!selectedRoles.includes('player'))selectedRoles.unshift('player');
+    const desiredRoles=[...new Set(selectedRoles)];
+
+    btn.disabled=true;btn.textContent='Guardando...';
+    try{
+      if(u.linkedPlayerId&&u.linkedPlayerId!==selectedPlayerId){
+        const {error}=await supabaseClient.from('players').update({user_id:null}).eq('id',u.linkedPlayerId).eq('user_id',u.id);
+        if(error)throw error;
+      }
+      if(selectedPlayerId&&selectedPlayerId!==u.linkedPlayerId){
+        const target=(dbPlayers||[]).find(p=>p.id===selectedPlayerId);
+        if(target?.user_id&&target.user_id!==u.id)throw new Error('Ese jugador ya está ocupado.');
+        const {error}=await supabaseClient.from('players').update({user_id:u.id}).eq('id',selectedPlayerId);
+        if(error)throw error;
+        if(target?.name){
+          const {error:profileError}=await supabaseClient.from('profiles').update({display_name:target.name}).eq('id',u.id);
+          if(profileError)throw profileError;
+        }
+      }
+
+      const {error:deleteError}=await supabaseClient.from('user_roles').delete().eq('user_id',u.id);
+      if(deleteError)throw deleteError;
+      if(desiredRoles.length){
+        const {error:insertError}=await supabaseClient.from('user_roles').insert(desiredRoles.map(role=>({user_id:u.id,role})));
+        if(insertError)throw insertError;
+      }
+      alert('Usuario actualizado correctamente.');
+      await renderAdmin();
+      await loadCurrentUserFromSupabase();
+    }catch(err){
+      console.error(err);alert(err?.message||'No se pudo actualizar el usuario.');
+      btn.disabled=false;btn.textContent='Guardar permisos';
+    }
+  }));
+
   const refs=list.filter(u=>u.roles?.includes('referee'));
   const assigned=refereeAssignments();
   $('#refereeAssignments').innerHTML=fixtures.map(f=>`<div class="referee-row"><div><strong>Jornada ${f.round}</strong><span>${teams[f.home].name} vs ${teams[f.away].name}</span></div><select data-ref-match="${f.id}"><option value="">Sin árbitro asignado</option>${refs.map(u=>`<option value="${escapeHtml(u.email)}" ${assigned[f.id]===u.email?'selected':''}>${escapeHtml(u.linkedPlayer||u.displayName||u.email)}</option>`).join('')}</select></div>`).join('');
   $$('#refereeAssignments [data-ref-match]').forEach(sel=>sel.addEventListener('change',()=>{const data=refereeAssignments();if(sel.value)data[sel.dataset.refMatch]=sel.value;else delete data[sel.dataset.refMatch];store.set('league:refereeAssignments',data);refreshPermissionViews()}));
 }
+
 
 
 $('#addFixture')?.addEventListener('click',()=>{
