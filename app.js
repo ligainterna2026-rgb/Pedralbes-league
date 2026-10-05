@@ -1,3 +1,7 @@
+const supabaseClient = window.supabase.createClient(
+  window.LIGA_SUPABASE.url,
+  window.LIGA_SUPABASE.anonKey
+);
 const LEAGUE_EMAIL = 'ligainterna2026@gmail.com';
 
 const teams = {
