@@ -855,3 +855,11 @@ img.team-profile-target:hover {
   #view-disponibilidad .availability-admin-actions{display:grid!important;grid-template-columns:1fr!important;gap:9px!important;margin-top:12px!important}
   #view-disponibilidad .availability-admin-actions button{display:block!important;width:100%!important;min-height:48px!important}
 }
+
+/* v32.12 · voto de disponibilidad directamente desde el perfil de jugador */
+.profile-availability-votes{grid-column:1/-1;display:grid;gap:8px;padding-top:2px}
+.profile-availability-label{font-size:.75rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.profile-availability-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.profile-availability-buttons .availability-vote-chip,.profile-availability-buttons .availability-none-chip{min-height:42px}
+@media(max-width:900px){.player-pending-card{grid-template-columns:1fr!important;gap:12px!important}.profile-availability-votes{grid-column:auto!important;width:100%!important}.profile-availability-buttons{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}.profile-availability-buttons .availability-vote-chip,.profile-availability-buttons .availability-none-chip{width:100%!important;min-width:0!important;min-height:46px!important}.profile-availability-open{width:100%!important;min-height:46px!important}}
+@media(max-width:420px){.profile-availability-buttons{grid-template-columns:1fr!important}}
