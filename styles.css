@@ -507,7 +507,7 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   .nav-backdrop{
     display:block!important;
     position:fixed!important;
-    z-index:91!important;
+    z-index:89!important;
     inset:66px 0 0!important;
     background:rgba(0,0,0,.58)!important;
     backdrop-filter:blur(2px)!important;
