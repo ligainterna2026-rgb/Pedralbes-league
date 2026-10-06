@@ -553,7 +553,9 @@ function renderTeamProfile(key){
 }
 function teamMatchHtml(f,key,finished){const s=getStateFor(f.id),opponent=f.home===key?f.away:f.home,isHome=f.home===key,score=finished?(isHome?`${s.homeScore}–${s.awayScore}`:`${s.awayScore}–${s.homeScore}`):'VS';return `<article class="team-match-row"><img src="${teams[opponent].logo}" alt="" data-team-profile="${opponent}" class="team-profile-target"><div><strong>${teamProfileInline(opponent)}</strong><small>Jornada ${f.round} · ${finished?'Finalizado':availabilityStatus(f.id)}</small></div><b>${score}</b><button class="ghost compact-btn" type="button" ${finished?`data-team-live="${f.id}"`:`data-team-match="${f.id}"`}>${finished?'Ver acta':'Disponibilidad'}</button></article>`}
 function renderHomeDashboard(){
-  const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,5),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,5);
+  const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,3),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,3);
+  const top3=standingsData().slice(0,3),homeTable=$('#homeStandingsTop');
+  if(homeTable)homeTable.innerHTML=top3.map((r,i)=>`<button type="button" class="home-standing-row" data-team-profile="${r.key}"><span class="home-standing-pos">${i+1}</span><img src="${teams[r.key].logo}" alt=""><strong>${escapeHtml(r.name)}</strong><span class="home-standing-points">${r.pts} <small>PTS</small></span></button>`).join('');
   $('#recentResults').innerHTML=finished.length?finished.map(f=>homeMatchHtml(f,true)).join(''):'<div class="empty-state">Todavía no se ha finalizado ningún partido.</div>';
   $('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
   bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
@@ -1352,3 +1354,5 @@ $('#saveReminderSettings')?.addEventListener('click',()=>{
 
 const _renderAdminV6=renderAdmin;
 renderAdmin=function(){_renderAdminV6(); if(isAdmin())renderReminderSettings()};
+
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-admin-jump]');if(!b)return;document.getElementById(b.dataset.adminJump)?.scrollIntoView({behavior:'smooth',block:'start'})});

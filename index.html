@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-13" />
+  <link rel="stylesheet" href="styles.css?v=32-14" />
 </head>
 <body>
   <header class="topbar">
@@ -72,30 +72,34 @@
         </div>
       </div>
 
-      <div class="section-head">
-        <div><span class="eyebrow">EQUIPOS</span><h2>Los 5 equipos de la liga</h2><p>Pulsa en un escudo para abrir su plantilla y sus estadísticas.</p></div>
-      </div>
-      <div id="homeTeams" class="team-strip"></div>
-
-      <div class="home-grid">
-        <section class="panel home-panel">
+      <section class="home-overview" aria-label="Resumen de la liga">
+        <article class="panel home-summary-card home-standings-card">
+          <div class="panel-head"><div><span class="eyebrow">CLASIFICACIÓN</span><h2>Top 3</h2></div><button class="text-btn" data-go="clasificacion">Ver completa</button></div>
+          <div id="homeStandingsTop" class="home-standings-top"></div>
+        </article>
+        <article class="panel home-summary-card">
           <div class="panel-head"><div><span class="eyebrow">ÚLTIMOS PARTIDOS</span><h2>Resultados</h2></div><button class="text-btn" data-go="jornadas">Ver todos</button></div>
           <div id="recentResults" class="match-list"></div>
-        </section>
-        <section class="panel home-panel">
+        </article>
+        <article class="panel home-summary-card">
           <div class="panel-head"><div><span class="eyebrow">PRÓXIMOS</span><h2>Por jugar</h2></div><button class="text-btn" data-go="jornadas">Calendario</button></div>
           <div id="upcomingMatches" class="match-list"></div>
-        </section>
-      </div>
+        </article>
+      </section>
 
-      <section class="panel home-stats">
-        <div class="panel-head"><div><span class="eyebrow">ESTADÍSTICAS</span><h2>Jugadores destacados</h2><p>Se irá rellenando automáticamente cuando se registren partidos.</p></div></div>
+      <section class="panel home-stats home-highlight-panel">
+        <div class="panel-head"><div><span class="eyebrow">ESTADÍSTICAS</span><h2>Jugadores destacados</h2></div><button class="text-btn" data-go="jugadores">Ver ranking</button></div>
         <div class="stats-cards">
           <div><span class="stat-label">Máximo goleador</span><button id="homeTopScorer" class="player-name-button stat-player" type="button">—</button><small id="homeTopScorerMeta">0 goles</small></div>
           <div><span class="stat-label">Máximo asistente</span><button id="homeTopAssist" class="player-name-button stat-player" type="button">—</button><small id="homeTopAssistMeta">0 asistencias</small></div>
           <div><span class="stat-label">Más MVP</span><button id="homeTopMvp" class="player-name-button stat-player" type="button">—</button><small id="homeTopMvpMeta">0 MVP</small></div>
         </div>
       </section>
+
+      <details class="home-teams-details">
+        <summary><span><b>Equipos de la liga</b><small>Consulta plantillas y estadísticas</small></span><span aria-hidden="true">⌄</span></summary>
+        <div id="homeTeams" class="team-strip compact-team-strip"></div>
+      </details>
     </section>
 
     <section class="view" id="view-clasificacion">
@@ -394,14 +398,24 @@
     </section>
 
     <section class="view" id="view-admin">
-      <div class="page-head"><div><span class="eyebrow">ADMINISTRACIÓN</span><h1>Gestión de la liga</h1><p>Cuenta principal de la liga: <strong>ligainterna2026@gmail.com</strong>. Cada jugador se vincula él mismo al registrarse; desde aquí puedes asignarle además los roles de árbitro o administrador.</p></div></div>
-      <div class="permissions-grid">
-        <div class="permission-card"><span class="role admin">ADMIN</span><h3>Administrador</h3><p>Configuración completa, usuarios, roles, fotos, 5 ideal, enlaces de YouTube y correcciones.</p></div>
-        <div class="permission-card"><span class="role ref">ÁRBITRO</span><h3>Árbitro</h3><p>Solo puede editar los partidos que tenga asignados: cronómetro, ⚽ goles, 🅰️ asistencias, resultado y ⭐ MVP.</p></div>
-        <div class="permission-card"><span class="role player">JUGADOR</span><h3>Jugador</h3><p>Elige su propia ficha al registrarse y puede cambiar su foto. Puede ser también árbitro con la misma cuenta.</p></div>
-        <div class="permission-card"><span class="role guest">VISITANTE</span><h3>Sin registro</h3><p>Puede ver toda la competición, estadísticas, streaming y grabaciones, pero no puede editar nada.</p></div>
+      <div class="page-head admin-page-head"><div><span class="eyebrow">ADMINISTRACIÓN</span><h1>Gestión de la liga</h1><p>Accesos rápidos para gestionar usuarios, calendario, árbitros y los apartados principales de la competición.</p></div></div>
+      <div class="admin-quick-actions" aria-label="Accesos rápidos de administración">
+        <button type="button" data-admin-jump="adminUsersPanel"><span>👤</span><strong>Usuarios</strong><small>Buscar y editar cuentas</small></button>
+        <button type="button" data-admin-jump="adminFixturesPanel"><span>📅</span><strong>Partidos</strong><small>Editar calendario</small></button>
+        <button type="button" data-admin-jump="adminRefereesPanel"><span>🟨</span><strong>Árbitros</strong><small>Asignar partidos</small></button>
+        <button type="button" data-go="disponibilidad"><span>✅</span><strong>Disponibilidad</strong><small>Gestionar fechas</small></button>
+        <button type="button" data-go="premios"><span>⭐</span><strong>5 ideal</strong><small>Elegir la jornada</small></button>
       </div>
-      <section class="panel admin-users-panel">
+      <details class="admin-roles-details">
+        <summary><span><b>Roles y permisos</b><small>Ver qué puede hacer cada tipo de cuenta</small></span><span aria-hidden="true">⌄</span></summary>
+        <div class="permissions-grid">
+          <div class="permission-card"><span class="role admin">ADMIN</span><h3>Administrador</h3><p>Configuración completa, usuarios, roles, fotos, 5 ideal, enlaces de YouTube y correcciones.</p></div>
+          <div class="permission-card"><span class="role ref">ÁRBITRO</span><h3>Árbitro</h3><p>Solo puede editar los partidos que tenga asignados: cronómetro, ⚽ goles, 🅰️ asistencias, resultado y ⭐ MVP.</p></div>
+          <div class="permission-card"><span class="role player">JUGADOR</span><h3>Jugador</h3><p>Elige su propia ficha al registrarse y puede cambiar su foto. Puede ser también árbitro con la misma cuenta.</p></div>
+          <div class="permission-card"><span class="role guest">VISITANTE</span><h3>Sin registro</h3><p>Puede ver toda la competición, estadísticas, streaming y grabaciones, pero no puede editar nada.</p></div>
+        </div>
+      </details>
+      <section id="adminUsersPanel" class="panel admin-users-panel admin-section-card">
         <div class="panel-head"><div><span class="eyebrow">CUENTAS</span><h2>Usuarios registrados</h2><p>Busca por nombre, jugador o correo y filtra por equipo o rol para localizar cualquier cuenta al instante.</p></div></div>
         <div class="admin-user-tools" aria-label="Buscar y filtrar usuarios">
           <label class="admin-user-search"><span>Buscar usuario</span><input id="adminUserSearch" type="search" placeholder="Nombre, jugador o correo..." autocomplete="off"></label>
@@ -412,12 +426,12 @@
         <div id="adminUsers" class="admin-users"></div>
         <div id="adminUsersEmptyFilter" class="empty-state" hidden>No hay usuarios que coincidan con la búsqueda.</div>
       </section>
-      <section class="panel admin-fixtures-panel">
+      <section id="adminFixturesPanel" class="panel admin-fixtures-panel admin-section-card">
         <div class="panel-head"><div><span class="eyebrow">CALENDARIO</span><h2>Editar jornadas y partidos</h2><p>Puedes mover un partido de jornada, cambiar local/visitante, añadir encuentros o eliminarlos. El equipo que descansa se calcula automáticamente según los equipos que juegan.</p></div><div class="fixture-editor-toolbar"><button id="addFixture" class="secondary" type="button">+ Añadir partido</button><button id="resetFixtures" class="ghost" type="button">Restaurar calendario</button></div></div>
         <div class="notice compact">Si cambias los equipos de un partido que ya tiene resultado, goles, disponibilidad o vídeo, la web te pedirá confirmación y borrará esos datos asociados para evitar estadísticas mezcladas.</div>
         <div id="fixtureEditor" class="fixture-editor"></div>
       </section>
-      <section class="panel admin-ref-panel">
+      <section id="adminRefereesPanel" class="panel admin-ref-panel admin-section-card">
         <div class="panel-head"><div><span class="eyebrow">PARTIDOS</span><h2>Asignar árbitros</h2><p>Los árbitros solo podrán editar los encuentros que tengan asignados.</p></div></div>
         <div id="refereeAssignments" class="referee-assignments"></div>
       </section>
@@ -489,6 +503,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-13"></script>
+  <script src="app.js?v=32-14"></script>
 </body>
 </html>
