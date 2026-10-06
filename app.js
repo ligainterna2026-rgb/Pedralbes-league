@@ -392,7 +392,7 @@ function playerStats(){
   fixtures.forEach(f=>{const s=getStateFor(f.id);(s.events||[]).forEach(e=>{if(stats[e.scorer]){stats[e.scorer].goals+=Number(e.competitionValue ?? e.value ?? 1);stats[e.scorer].realGoals+=Number(e.realValue ?? 1)}if(e.assist&&stats[e.assist])stats[e.assist].assists+=1});if(s.mvp&&stats[s.mvp])stats[s.mvp].mvps+=1});
   return stats;
 }
-const PLAYER_POINTS={goal:4,assist:2,mvp:3,win:2,draw:1,loss:0};
+const PLAYER_POINTS={goal:4,assist:2,mvp:3,win:2,draw:0,loss:0};
 function automaticParticipantNames(state){
   const names=new Set();
   (state?.events||[]).forEach(e=>{if(e.scorer)names.add(e.scorer);if(e.assist)names.add(e.assist)});
@@ -544,7 +544,7 @@ function renderRankings(){
   $('#assistsBody').innerHTML=assists.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${teamProfileInline(p.key,p.team)}</td><td class="points emoji-stat">🅰️ ${p.assists}</td></tr>`).join('');
   if($('#mvpsBody'))$('#mvpsBody').innerHTML=mvps.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${teamProfileInline(p.key,p.team)}</td><td class="points emoji-stat">⭐ ${p.mvps}</td></tr>`).join('');
   const combined=Object.values(playerRankingStats()).sort((a,b)=>b.total-a.total||b.realGoals-a.realGoals||b.assists-a.assists||b.mvps-a.mvps||a.name.localeCompare(b.name,'es'));
-  $('#playersRankingBody').innerHTML=combined.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${teamProfileInline(p.key,p.team)}</td><td class="emoji-stat">⚽ ${p.realGoals}</td><td class="emoji-stat">🅰️ ${p.assists}</td><td class="emoji-stat">⭐ ${p.mvps}</td><td>${p.played}</td><td>${p.wins}</td><td>${p.draws}</td><td>${p.losses}</td><td class="points"><strong>${p.total}</strong></td></tr>`).join('');
+  $('#playersRankingBody').innerHTML=combined.map((p,i)=>`<tr><td class="pos">${i+1}</td><td>${rankingPlayerCell(p)}</td><td>${teamProfileInline(p.key,p.team)}</td><td class="emoji-stat">⚽ ${p.realGoals}</td><td class="emoji-stat">🅰️ ${p.assists}</td><td class="emoji-stat">⭐ ${p.mvps}</td><td class="points"><strong>${p.total}</strong></td></tr>`).join('');
 }
 function renderTeamProfile(key){
   const t=teams[key];if(!t)return;activeTeamKey=key;const stats=playerStats(),table=standingsData(),row=table.find(r=>r.key===key),position=table.findIndex(r=>r.key===key)+1;
@@ -564,7 +564,7 @@ function renderHomeDashboard(){
   bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
   const topG=sortedBy('goals')[0],topA=sortedBy('assists')[0],topM=sortedBy('mvps')[0];
   const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
-  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.textContent=n?p.name:'—';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
+  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.innerHTML=n&&p?`${playerAvatarHtml(p.name,'home-stat-avatar')}<span>${escapeHtml(p.name)}</span>`:'<span class="home-stat-empty">—</span>';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
   renderNextMatchCard();
 }
 function homeMatchHtml(f,finished){
@@ -915,40 +915,28 @@ $('#saveYoutubeLinks').addEventListener('click',()=>{if(!isAdmin()){alert('Solo 
 function availabilityKey(){return `availability:${$('#availabilityMatch').value}`}
 function currentAvailability(){return availabilityData($('#availabilityMatch').value)}
 function selectOptions(values,selected,placeholder){return `<option value="">${placeholder}</option>`+values.map(v=>`<option value="${String(v.value)}" ${String(selected)===String(v.value)?'selected':''}>${v.label}</option>`).join('')}
-function weekdayFromDate(dateString){
-  if(!dateString)return '';
-  const [y,m,d]=dateString.split('-').map(Number);if(!y||!m||!d)return '';
-  return String(new Date(y,m-1,d,12,0,0).getDay());
-}
-function nextDateForWeekday(weekday,hour,now=new Date()){
-  if(weekday===''||hour==='')return null;
-  const target=new Date(now.getFullYear(),now.getMonth(),now.getDate(),Number(hour),0,0,0);
-  let diff=(Number(weekday)-now.getDay()+7)%7;
-  target.setDate(target.getDate()+diff);
-  if(diff===0&&target<=now)target.setDate(target.getDate()+7);
-  return target;
-}
+function weekdayFromDate(value){if(!value)return '';const d=new Date(`${value}T12:00:00`);return Number.isNaN(d.getTime())?'':String(d.getDay())}
 function localYmd(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
-function autoDatePreview(weekday,hour){
-  const date=nextDateForWeekday(weekday,hour);if(!date)return 'Elige día de la semana y hora';
+function todayYmd(){const d=new Date();return localYmd(d)}
+function availabilityDatePreview(dateValue,hour){
+  if(!dateValue||hour==='')return 'Elige una fecha y una hora';
+  const date=new Date(`${dateValue}T12:00:00`);if(Number.isNaN(date.getTime()))return 'Fecha no válida';
   const month=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][date.getMonth()];
   const dayName=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][date.getDay()];
   return `${dayName} ${date.getDate()} de ${month} · ${hour}:00`;
 }
-function dateEditorValue(opt={}){
-  return {weekday:opt.weekday!==undefined&&opt.weekday!==null&&opt.weekday!==''?String(opt.weekday):weekdayFromDate(opt.date),hour:opt.time?opt.time.split(':')[0]:''};
-}
+function dateEditorValue(opt={}){return {date:opt.date||'',hour:opt.time?opt.time.split(':')[0]:''}}
 function availabilityEditorHtml(opt,index){
-  const v=dateEditorValue(opt),weekdays=[{value:1,label:'Lunes'},{value:2,label:'Martes'},{value:3,label:'Miércoles'},{value:4,label:'Jueves'},{value:5,label:'Viernes'},{value:6,label:'Sábado'},{value:0,label:'Domingo'}],hours=Array.from({length:24},(_,i)=>({value:String(i).padStart(2,'0'),label:`${String(i).padStart(2,'0')}:00`}));
-  const preview=opt?.date&&opt?.time?availabilityOptionLabel(opt):autoDatePreview(v.weekday,v.hour);
-  return `<article class="availability-editor-card" data-option-editor="${index}"><div class="availability-editor-title"><span>DÍA ${index+1}</span><strong data-auto-date-preview>${preview}</strong></div><div class="weekday-time-grid"><label>Día de la semana<select data-field="weekday">${selectOptions(weekdays,v.weekday,'Día')}</select></label><label>Hora<select data-field="hour">${selectOptions(hours,v.hour,'Hora')}</select></label></div><div class="auto-date-note">📅 La fecha se calcula automáticamente según el próximo ${v.weekday!==''?weekdays.find(x=>String(x.value)===String(v.weekday))?.label.toLowerCase()||'día elegido':'día elegido'}.</div></article>`;
+  const v=dateEditorValue(opt),hours=Array.from({length:24},(_,i)=>({value:String(i).padStart(2,'0'),label:`${String(i).padStart(2,'0')}:00`}));
+  const preview=availabilityDatePreview(v.date,v.hour);
+  return `<article class="availability-editor-card" data-option-editor="${index}"><div class="availability-editor-title"><span>OPCIÓN ${index+1}${index===0?' · MÍNIMO 1':' · OPCIONAL'}</span><strong data-auto-date-preview>${preview}</strong></div><div class="weekday-time-grid"><label>Fecha<input type="date" data-field="date" min="${todayYmd()}" value="${escapeHtml(v.date)}"></label><label>Hora<select data-field="hour">${selectOptions(hours,v.hour,'Hora')}</select></label></div><div class="auto-date-note">📅 Puedes elegir una fecha concreta, aunque sea dentro de varias semanas.</div></article>`;
 }
 function updateAvailabilityEditorPreviews(){
-  $$('#availabilityOptionEditors [data-option-editor]').forEach(card=>{const get=f=>card.querySelector(`[data-field="${f}"]`)?.value||'',weekday=get('weekday'),hour=get('hour'),preview=card.querySelector('[data-auto-date-preview]');if(preview)preview.textContent=autoDatePreview(weekday,hour)});
+  $$('#availabilityOptionEditors [data-option-editor]').forEach(card=>{const get=f=>card.querySelector(`[data-field="${f}"]`)?.value||'',date=get('date'),hour=get('hour'),preview=card.querySelector('[data-auto-date-preview]');if(preview)preview.textContent=availabilityDatePreview(date,hour)});
 }
 function readAvailabilityEditors(){
   const result=[];
-  $$('#availabilityOptionEditors [data-option-editor]').forEach((card,index)=>{const get=f=>card.querySelector(`[data-field="${f}"]`)?.value||'',weekday=get('weekday'),hour=get('hour');if(weekday===''&&hour===''){result.push(null);return}if(weekday===''||hour===''){result.push({invalid:true,index});return}const date=nextDateForWeekday(weekday,hour);if(!date){result.push({invalid:true,index});return}result.push({id:`opt-${index+1}`,weekday:Number(weekday),date:localYmd(date),time:`${hour}:00`})});
+  $$('#availabilityOptionEditors [data-option-editor]').forEach((card,index)=>{const get=f=>card.querySelector(`[data-field="${f}"]`)?.value||'',date=get('date'),hour=get('hour');if(date===''&&hour===''){result.push(null);return}if(date===''||hour===''){result.push({invalid:true,index});return}const chosen=new Date(`${date}T${hour}:00:00`);if(Number.isNaN(chosen.getTime())||chosen<new Date()){result.push({invalid:true,index});return}result.push({id:`opt-${index+1}`,weekday:Number(weekdayFromDate(date)),date,time:`${hour}:00`})});
   return result;
 }
 function availabilityVoteCounts(f,data,optId){
@@ -958,10 +946,10 @@ function availabilityVoteCounts(f,data,optId){
 function renderAvailability(){
   const matchId=$('#availabilityMatch').value,f=findFixture(matchId),data=availabilityData(matchId);if(!f)return;
   const adminEditor=$('#availabilityAdminEditor');adminEditor.hidden=!isAdmin();
-  if(isAdmin()){ $('#availabilityOptionEditors').innerHTML=[0,1,2].map(i=>availabilityEditorHtml(data.options[i]||{},i)).join(''); $$('#availabilityOptionEditors select').forEach(sel=>sel.addEventListener('change',updateAvailabilityEditorPreviews)); updateAvailabilityEditorPreviews(); }
+  if(isAdmin()){ $('#availabilityOptionEditors').innerHTML=[0,1,2].map(i=>availabilityEditorHtml(data.options[i]||{},i)).join(''); $$('#availabilityOptionEditors select, #availabilityOptionEditors input').forEach(el=>el.addEventListener('change',updateAvailabilityEditorPreviews)); updateAvailabilityEditorPreviews(); }
 
   if(!data.options.length){
-    $('#availabilityOptions').innerHTML='<div class="empty-state">El administrador todavía no ha publicado los 3 días para votar.</div>';
+    $('#availabilityOptions').innerHTML='<div class="empty-state">El administrador todavía no ha publicado ninguna fecha para votar.</div>';
     $('#availabilityGrid').innerHTML='';
     $('#availabilitySummary').innerHTML='<b>Estado</b><br>Esperando los días y horas propuestos.';
     return;
@@ -981,7 +969,7 @@ function renderAvailability(){
   $('#availabilitySummary').innerHTML=`<b>Participación</b><br>${responded} de ${totalPlayers} jugadores han respondido.<br><small>${escapeHtml(hint)}</small>`;
 }
 $('#availabilityMatch').addEventListener('change',renderAvailability);
-$('#saveAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors();if(items.some(x=>x?.invalid)||items.filter(Boolean).length!==3){$('#availabilityAdminMsg').textContent='Elige día de la semana y hora en los 3 días.';return}const labels=items.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==3){$('#availabilityAdminMsg').textContent='Los 3 días/horas deben ser diferentes.';return}current.options=items;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent='3 días guardados. Los jugadores ya pueden votar.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
+$('#saveAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Los jugadores ya pueden votar.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 $('#clearAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;if(!confirm('¿Borrar los días propuestos y todos los votos de este partido?'))return;saveAvailabilityData($('#availabilityMatch').value,defaultAvailability());$('#availabilityAdminMsg').textContent='Días borrados.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 
 function normalizeIdealSelection(saved){

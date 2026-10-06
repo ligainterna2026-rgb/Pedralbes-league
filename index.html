@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-9" />
+  <link rel="stylesheet" href="styles.css?v=32-10" />
 </head>
 <body>
   <header class="topbar">
@@ -157,11 +157,11 @@
     </section>
 
     <section class="view" id="view-jugadores">
-      <div class="page-head"><div><span class="eyebrow">CLASIFICACIÓN INDIVIDUAL</span><h1>Ranking general</h1><p>Sistema de puntos: ⚽ gol real +4 · 🅰️ asistencia +2 · ⭐ MVP +3 · victoria +2 · empate +1 · derrota 0. Los puntos por resultado solo cuentan para jugadores marcados como participantes en el acta.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">CLASIFICACIÓN INDIVIDUAL</span><h1>Ranking general</h1><p>El ranking premia el rendimiento individual y la victoria del equipo. ⚽ Gol real <strong>+4</strong> · 🅰️ Asistencia <strong>+2</strong> · ⭐ MVP <strong>+3</strong> · 🏆 Victoria <strong>+2</strong>. Los puntos por victoria solo cuentan para los jugadores marcados como participantes en el acta.</p></div></div>
       <section class="panel table-panel">
         <div class="table-scroll">
           <table class="ranking-table player-ranking-table">
-            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES REALES</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>PJ</th><th>V</th><th>E</th><th>D</th><th>PTS</th></tr></thead>
+            <thead><tr><th>POS</th><th>JUGADOR</th><th>EQUIPO</th><th>⚽ GOLES REALES</th><th>🅰️ ASIST.</th><th>⭐ MVP</th><th>PTS</th></tr></thead>
             <tbody id="playersRankingBody"></tbody>
           </table>
         </div>
@@ -327,15 +327,15 @@
 
     <section class="view" id="view-disponibilidad">
       <button id="availabilityBack" class="ghost back-btn" type="button">← Volver</button>
-      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>El administrador propone 3 días y horas. Cada jugador marca directamente los días en los que puede jugar.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>El administrador puede proponer de 1 a 3 fechas concretas. Cada jugador marca directamente cuándo puede jugar.</p></div></div>
       <div class="panel availability-panel">
         <label for="availabilityMatch">Partido</label>
         <select id="availabilityMatch"></select>
 
         <section id="availabilityAdminEditor" class="availability-admin-editor" hidden>
-          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer 3 días</h2><p>Elige el día de la semana y la hora. La web calcula automáticamente la fecha y el mes. Los jugadores votarán directamente cada día.</p></div></div>
+          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer fechas</h2><p>Elige entre 1 y 3 fechas concretas y su hora. Puedes programarlas con varias semanas de antelación.</p></div></div>
           <div id="availabilityOptionEditors" class="availability-option-editors"></div>
-          <div class="availability-admin-actions"><button id="saveAvailabilityOptions" class="secondary" type="button">Guardar 3 días</button><button id="clearAvailabilityOptions" class="ghost" type="button">Borrar días</button></div>
+          <div class="availability-admin-actions"><button id="saveAvailabilityOptions" class="secondary" type="button">Guardar fechas</button><button id="clearAvailabilityOptions" class="ghost" type="button">Borrar fechas</button></div>
           <div id="availabilityAdminMsg" class="saved-msg"></div>
         </section>
 
@@ -489,6 +489,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-9"></script>
+  <script src="app.js?v=32-10"></script>
 </body>
 </html>
