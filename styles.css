@@ -621,3 +621,7 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   .account-photo-tools .photo-upload-btn,.account-photo-tools .ghost{width:100%}
   .account-photo-tools .muted{width:100%}
 }
+
+/* v32.1 · foto del jugador en el acceso rápido de Cuenta */
+.account-avatar{overflow:hidden}
+.account-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:50%}

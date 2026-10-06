@@ -226,7 +226,19 @@ function refreshAuthUI(){
   const u=currentUser();
   $('#accountLabel').textContent=u?(u.linkedPlayer||u.displayName||u.email.split('@')[0]):'Entrar';
   $('#accountRole').textContent=u?(u.roles?.length?u.roles.map(roleLabel).join(' · '):(u.linkedPlayer?'Jugador':'Usuario')):'Visitante';
-  $('#accountAvatar').textContent=u?'●':'👤';
+  const avatar=$('#accountAvatar');
+  if(avatar){
+    if(!u){
+      avatar.innerHTML='👤';
+      $('#accountBtn')?.setAttribute('aria-label','Entrar o registrarse');
+    }else{
+      const photo=u.linkedPlayer?(u.linkedPlayerPhoto||playerPhoto(u.linkedPlayer)):null;
+      const label=u.linkedPlayer||u.displayName||u.email.split('@')[0]||'Cuenta';
+      const initials=label.split(' ').map(x=>x[0]).filter(Boolean).slice(0,2).join('').toUpperCase()||'👤';
+      avatar.innerHTML=photo?`<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(label)}">`:escapeHtml(initials);
+      $('#accountBtn')?.setAttribute('aria-label',`Abrir cuenta de ${label}`);
+    }
+  }
   $$('.admin-only').forEach(el=>el.hidden=!isAdmin());
   $$('.admin-only-block').forEach(el=>el.hidden=!isAdmin());
 }
@@ -1031,7 +1043,7 @@ async function persistPlayerPhoto(name,fileOrDataUrl){
   const {error:updateError}=await supabaseClient.from('players').update({photo_url:url}).eq('id',player.id);if(updateError)throw updateError;
   remotePlayerByName.set(name,{...player,photo_url:url});remotePlayerById.set(player.id,{...player,photo_url:url});store.remove(`playerPhoto:${name}`);
   if(authStateUser?.linkedPlayer===name)authStateUser.linkedPlayerPhoto=url;
-  refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
+  refreshAuthUI();refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
   return url;
 }
 async function removePersistentPlayerPhoto(name){
@@ -1040,7 +1052,7 @@ async function removePersistentPlayerPhoto(name){
   const path=`${player.id}/profile.jpg`;const {error:storageError}=await supabaseClient.storage.from('player-photos').remove([path]);if(storageError)console.warn('No se pudo borrar el archivo anterior',storageError);
   const {error:updateError}=await supabaseClient.from('players').update({photo_url:null}).eq('id',player.id);if(updateError)throw updateError;
   remotePlayerByName.set(name,{...player,photo_url:null});remotePlayerById.set(player.id,{...player,photo_url:null});store.remove(`playerPhoto:${name}`);if(authStateUser?.linkedPlayer===name)authStateUser.linkedPlayerPhoto=null;
-  refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
+  refreshAuthUI();refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
 }
 function bindAccountPhotoControls(){
   const input=$('#accountPhotoInput'),remove=$('#accountRemovePhoto'),status=$('#accountPhotoStatus'),name=currentUser()?.linkedPlayer;if(!name)return;
