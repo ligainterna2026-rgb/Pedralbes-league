@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=31" />
 </head>
 <body>
   <header class="topbar">
@@ -18,6 +18,7 @@
     </button>
     <button id="menuBtn" class="menu-btn" aria-expanded="false" aria-controls="nav">☰</button>
     <nav id="nav" class="nav" aria-label="Navegación principal">
+      <button id="mobileNavBack" class="mobile-nav-back" type="button" aria-label="Volver a la pantalla anterior">← Volver</button>
       <span class="nav-section-label">Competición</span>
       <button class="nav-link active" data-view="inicio"><span class="nav-icon">🏠</span><span>Inicio</span></button>
       <button class="nav-link" data-view="jornadas"><span class="nav-icon">📅</span><span>Jornadas</span></button>
@@ -477,6 +478,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>

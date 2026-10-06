@@ -206,6 +206,7 @@ function setMobileMenu(open){
 }
 $('#menuBtn').addEventListener('click',()=>setMobileMenu(!$('#nav').classList.contains('open')));
 $('#navBackdrop')?.addEventListener('click',()=>setMobileMenu(false));
+$('#mobileNavBack')?.addEventListener('click',()=>{setMobileMenu(false);goBack('inicio')});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')setMobileMenu(false)});
 $('#accountBtn').addEventListener('click',()=>navigate(currentUser()?'cuenta':'acceso'));
 
