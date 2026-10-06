@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-12" />
+  <link rel="stylesheet" href="styles.css?v=32-13" />
 </head>
 <body>
   <header class="topbar">
@@ -31,7 +31,7 @@
       <button class="nav-link" data-view="jugadores"><span class="nav-icon">🏅</span><span>Ranking general</span></button>
       <button class="nav-link" data-view="premios"><span class="nav-icon">5️⃣</span><span>5 ideal</span></button>
       <span class="nav-section-label">Partidos</span>
-      <button class="nav-link" data-view="disponibilidad"><span class="nav-icon">✅</span><span>Disponibilidad</span></button>
+      <button class="nav-link admin-only" data-view="disponibilidad" hidden><span class="nav-icon">✅</span><span>Disponibilidad</span></button>
       <button class="nav-link" data-view="directo"><span class="nav-icon">🔴</span><span>En directo</span></button>
       <button class="nav-link" data-view="streaming"><span class="nav-icon">▶️</span><span>Streaming</span></button>
       <span class="nav-section-label">Más</span>
@@ -68,7 +68,7 @@
             <div class="next-club"><img id="nextAwayLogo" alt="Escudo visitante"><strong id="nextAwayName">—</strong></div>
           </div>
           <div id="nextMatchStatus" class="next-match-status">Fecha por decidir</div>
-          <button id="startNextMatch" class="primary full">📅 Confirmar / votar partido</button>
+          <button id="startNextMatch" class="primary full">📅 Gestionar disponibilidad</button>
         </div>
       </div>
 
@@ -119,7 +119,7 @@
     </section>
 
     <section class="view" id="view-jornadas">
-      <div class="page-head"><div><span class="eyebrow">CALENDARIO</span><h1>Jornadas</h1><p>Se muestran todos los partidos desde el principio, aunque todavía no tengan horario confirmado. Pulsa en uno para votar disponibilidad o abrir el directo si ya está en juego.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">CALENDARIO</span><h1>Jornadas</h1><p>Se muestran todos los partidos desde el principio, aunque todavía no tengan horario confirmado. Pulsa en uno para consultar el partido o abrir el directo si ya está en juego.</p></div></div>
       <div id="rounds"></div>
     </section>
 
@@ -190,7 +190,7 @@
         <div class="profile-stat"><span class="emoji-icon">⭐</span><strong id="playerProfileMvps">0</strong><span>MVP</span></div>
       </div>
       <section class="panel player-upcoming-panel">
-        <div class="panel-head"><div><span class="eyebrow">PRÓXIMO PARTIDO</span><h2>Partido por confirmar</h2><p>Consulta las opciones y vota tu disponibilidad si este es tu perfil.</p></div></div>
+        <div class="panel-head"><div><span class="eyebrow">PRÓXIMO PARTIDO</span><h2>Partido por confirmar</h2><p>Consulta la fecha prevista y el estado del próximo partido.</p></div></div>
         <div id="playerPendingMatch"></div>
       </section>
       <section class="panel player-history-panel">
@@ -327,13 +327,13 @@
 
     <section class="view" id="view-disponibilidad">
       <button id="availabilityBack" class="ghost back-btn" type="button">← Volver</button>
-      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>El administrador puede proponer de 1 a 3 fechas concretas. Cada jugador marca directamente cuándo puede jugar.</p></div></div>
+      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>Apartado exclusivo de administración para gestionar fechas y disponibilidad de los jugadores.</p></div></div>
       <div class="panel availability-panel">
         <label for="availabilityMatch">Partido</label>
         <select id="availabilityMatch"></select>
 
         <section id="availabilityAdminEditor" class="availability-admin-editor" hidden>
-          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer fechas</h2><p>Elige entre 1 y 3 fechas concretas y su hora. Puedes programarlas con varias semanas de antelación.</p></div></div>
+          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer fechas</h2><p>Elige entre 1 y 3 fechas concretas y su hora. Puedes programarlas con varias semanas de antelación y marcar manualmente la disponibilidad de los jugadores.</p></div></div>
           <div id="availabilityOptionEditors" class="availability-option-editors"></div>
           <div class="availability-admin-actions"><button id="saveAvailabilityOptions" class="secondary" type="button">Guardar fechas</button><button id="clearAvailabilityOptions" class="ghost" type="button">Borrar fechas</button></div>
           <div id="availabilityAdminMsg" class="saved-msg"></div>
@@ -398,7 +398,7 @@
       <div class="permissions-grid">
         <div class="permission-card"><span class="role admin">ADMIN</span><h3>Administrador</h3><p>Configuración completa, usuarios, roles, fotos, 5 ideal, enlaces de YouTube y correcciones.</p></div>
         <div class="permission-card"><span class="role ref">ÁRBITRO</span><h3>Árbitro</h3><p>Solo puede editar los partidos que tenga asignados: cronómetro, ⚽ goles, 🅰️ asistencias, resultado y ⭐ MVP.</p></div>
-        <div class="permission-card"><span class="role player">JUGADOR</span><h3>Jugador</h3><p>Elige su propia ficha al registrarse, puede votar su disponibilidad y cambiar su foto. Puede ser también árbitro con la misma cuenta.</p></div>
+        <div class="permission-card"><span class="role player">JUGADOR</span><h3>Jugador</h3><p>Elige su propia ficha al registrarse y puede cambiar su foto. Puede ser también árbitro con la misma cuenta.</p></div>
         <div class="permission-card"><span class="role guest">VISITANTE</span><h3>Sin registro</h3><p>Puede ver toda la competición, estadísticas, streaming y grabaciones, pero no puede editar nada.</p></div>
       </div>
       <section class="panel admin-users-panel">
@@ -489,6 +489,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-12"></script>
+  <script src="app.js?v=32-13"></script>
 </body>
 </html>

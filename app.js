@@ -161,12 +161,7 @@ async function hydrateRefereePermissions(){
 }
 function canManageMatch(matchId){const u=currentUser();if(!u)return false;if(hasRole('admin',u))return true;return hasRole('referee',u)&&(remoteRefereeMatchIds.has(matchId)||assignedRefEmail(matchId).toLowerCase()===u.email.toLowerCase())}
 function canEditPlayerPhoto(name){return isAdmin() || (isPlayer() && linkedPlayer()===name)}
-function canVoteFor(name,matchId){
-  if(isAdmin())return true;
-  const u=currentUser(); if(!u||!hasRole('player',u)||u.linkedPlayer!==name)return false;
-  const f=findFixture(matchId); if(!f)return false; const meta=allPlayers.find(p=>p.name===name);
-  return !!meta && (meta.key===f.home||meta.key===f.away);
-}
+function canVoteFor(name,matchId){return isAdmin()}
 
 let viewHistory=[];
 const RESTORABLE_VIEWS=new Set(['inicio','jornadas','clasificacion','equipos','goleadores','asistencias','mvps','jugadores','streaming','disponibilidad','premios','directo','cuenta','acceso','admin']);
@@ -180,7 +175,7 @@ function restoreLastViewAfterAuth(){
   history.replaceState({leagueInternal:true,leagueView:document.body.dataset.view||wanted,leagueDepth:0},'',location.href);
 }
 function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
-  if(view==='admin'&&!isAdmin())view=currentUser()?'cuenta':'acceso';
+  if((view==='admin'||view==='disponibilidad')&&!isAdmin())view=currentUser()?'cuenta':'acceso';
   rememberView(view);
   const current=document.body.dataset.view;
   if(!fromBack&&!fromPop&&current&&current!==view){
@@ -364,7 +359,7 @@ function fixtureQuickActions(f,context='round'){
   const s=getStateFor(f.id),editable=canManageMatch(f.id),prefix=context==='home'?'home-':'';
   if(s.finished)return `<button class="ghost compact-btn" type="button" data-${prefix}acta="${f.id}">📋 Ver acta</button>`;
   if(s.started)return `<button class="${editable?'primary':'ghost'} compact-btn" type="button" data-${prefix}live="${f.id}">${editable?'🎛️ Gestionar partido':'🔴 Ver directo'}</button>`;
-  return `<button class="ghost compact-btn" type="button" data-${prefix}availability="${f.id}">📅 Confirmar asistencia</button>${editable?`<button class="primary compact-btn" type="button" data-${prefix}start="${f.id}">⚽ Iniciar partido</button>`:''}`;
+  return `${isAdmin()?`<button class="ghost compact-btn" type="button" data-${prefix}availability="${f.id}">📅 Gestionar disponibilidad</button>`:''}${editable?`<button class="primary compact-btn" type="button" data-${prefix}start="${f.id}">⚽ Iniciar partido</button>`:''}`;
 }
 function bindFixtureQuickActions(root=document){
   root.querySelectorAll('[data-acta],[data-live],[data-start]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openLiveMatch(btn.dataset.acta||btn.dataset.live||btn.dataset.start)}));
@@ -385,7 +380,7 @@ function renderRounds(){
   $$('#rounds [data-match-primary]').forEach(b=>b.addEventListener('click',()=>{const f=findFixture(b.dataset.matchPrimary),state=f?getStateFor(f.id):null;if(!f)return;(state?.finished||state?.started)?openLiveMatch(f.id):openAvailability(f.id)}));
   bindFixtureQuickActions($('#rounds'));
 }
-function openAvailability(matchId){if(!findFixture(matchId))return;$('#availabilityMatch').value=matchId;renderAvailability();navigate('disponibilidad')}
+function openAvailability(matchId){if(!isAdmin())return;if(!findFixture(matchId))return;$('#availabilityMatch').value=matchId;renderAvailability();navigate('disponibilidad')}
 
 function playerStats(){
   const stats={}; allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,realGoals:0,assists:0,mvps:0});
@@ -581,7 +576,7 @@ function renderNextMatchCard(){
   const f=nextPendingFixture(),btn=$('#startNextMatch'),refBtn=ensureNextMatchRefereeButton();
   if(!f){$('#nextRoundBadge').textContent='Temporada completada';$('#nextHomeName').textContent='—';$('#nextAwayName').textContent='—';[$('#nextHomeName'),$('#nextAwayName'),$('#nextHomeLogo'),$('#nextAwayLogo')].forEach(el=>{if(!el)return;delete el.dataset.teamProfile;el.classList.remove('team-profile-target');el.removeAttribute('role');el.removeAttribute('tabindex');el.removeAttribute('aria-label')});$('#nextHomeLogo').removeAttribute('src');$('#nextAwayLogo').removeAttribute('src');$('#nextMatchStatus').textContent='No quedan partidos pendientes';btn.disabled=true;refBtn.hidden=true;return}
   const state=getStateFor(f.id);
-  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#nextHomeLogo'),f.home);$('#nextAwayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#nextAwayLogo'),f.away);$('#nextHomeName').textContent=teams[f.home].name;markTeamProfileTarget($('#nextHomeName'),f.home);$('#nextAwayName').textContent=teams[f.away].name;markTeamProfileTarget($('#nextAwayName'),f.away);$('#nextMatchStatus').textContent=state.started?`● EN JUEGO · ${state.homeScore}–${state.awayScore}`:availabilityStatus(f.id);btn.disabled=false;btn.dataset.match=f.id;btn.textContent=availabilityData(f.id).confirmedOptionId?'📅 Ver disponibilidad':'📅 Confirmar / votar partido';
+  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#nextHomeLogo'),f.home);$('#nextAwayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#nextAwayLogo'),f.away);$('#nextHomeName').textContent=teams[f.home].name;markTeamProfileTarget($('#nextHomeName'),f.home);$('#nextAwayName').textContent=teams[f.away].name;markTeamProfileTarget($('#nextAwayName'),f.away);$('#nextMatchStatus').textContent=state.started?`● EN JUEGO · ${state.homeScore}–${state.awayScore}`:availabilityStatus(f.id);btn.hidden=!isAdmin();btn.disabled=!isAdmin();btn.dataset.match=f.id;btn.textContent='📅 Gestionar disponibilidad';
   refBtn.hidden=!canManageMatch(f.id);refBtn.dataset.match=f.id;refBtn.textContent=state.started?'🎛️ Gestionar partido':'⚽ Iniciar partido';
 }
 
@@ -968,11 +963,11 @@ function renderAvailability(){
   $$('#availabilityGrid [data-none]').forEach(btn=>btn.addEventListener('click',()=>{const player=btn.dataset.player;if(!canVoteFor(player,matchId))return;const d=availabilityData(matchId);d.votes[player]={};d.responded[player]=true;saveAvailabilityData(matchId,d);renderAvailability()}));
 
   const responded=[...playersOf(f.home),...playersOf(f.away)].filter(p=>data.responded?.[p]).length,totalPlayers=playersOf(f.home).length+playersOf(f.away).length;
-  const user=currentUser(),hint=user?(isPlayer()&&linkedPlayer()?`Tu voto: ${linkedPlayer()}. Puedes marcar varias opciones.`:'Tu cuenta no tiene un jugador vinculado.'):'Inicia sesión como jugador para votar.';
-  $('#availabilitySummary').innerHTML=`<b>Participación</b><br>${responded} de ${totalPlayers} jugadores han respondido.<br><small>${escapeHtml(hint)}</small>`;
+  const hint='Solo el administrador puede gestionar y marcar la disponibilidad de los jugadores.';
+  $('#availabilitySummary').innerHTML=`<b>Participación</b><br>${responded} de ${totalPlayers} jugadores tienen disponibilidad registrada.<br><small>${escapeHtml(hint)}</small>`;
 }
 $('#availabilityMatch').addEventListener('change',renderAvailability);
-$('#saveAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Los jugadores ya pueden votar.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
+$('#saveAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Gestión disponible solo para administración.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 $('#clearAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;if(!confirm('¿Borrar los días propuestos y todos los votos de este partido?'))return;saveAvailabilityData($('#availabilityMatch').value,defaultAvailability());$('#availabilityAdminMsg').textContent='Días borrados.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 
 function normalizeIdealSelection(saved){
@@ -1031,12 +1026,8 @@ function renderPlayerProfile(name){
   $('#playerPhotoControls').hidden=!isAdmin();$('#removePlayerPhoto').disabled=!photo;const photoHelp=$('#playerPhotoHelp');if(photoHelp)photoHelp.textContent='La foto del propio jugador se cambia desde Cuenta. El administrador puede corregir cualquier foto aquí.';
   const pending=fixtures.filter(f=>(f.home===meta.key||f.away===meta.key)&&!getStateFor(f.id).finished).sort((a,b)=>Number(a.round)-Number(b.round))[0];
   if(pending){
-    const opp=pending.home===meta.key?pending.away:pending.home,av=availabilityData(pending.id),confirmed=av.options.find(o=>o.id===av.confirmedOptionId),myVotes=av.votes?.[name]||{},selected=av.options.filter(o=>myVotes[o.id]).map(availabilityVoteLabel),editableVote=canVoteFor(name,pending.id);
-    const directVote=editableVote&&av.options.length?`<div class="profile-availability-votes"><span class="profile-availability-label">Tu disponibilidad</span><div class="profile-availability-buttons">${av.options.map((opt,i)=>`<button class="availability-vote-chip ${myVotes[opt.id]?'selected':''}" type="button" data-profile-vote="${opt.id}" data-match="${pending.id}">${myVotes[opt.id]?'✓ ':''}${availabilityVoteLabel(opt)}</button>`).join('')}<button class="availability-none-chip ${av.responded?.[name]&&!Object.values(myVotes).some(Boolean)?'selected':''}" type="button" data-profile-none="true" data-match="${pending.id}">Ninguna</button></div></div>`:'';
-    $('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt="" data-team-profile="${opp}" class="team-profile-target"><div><strong>${teamProfileInline(meta.key)} vs ${teamProfileInline(opp)}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>${confirmed?availabilityOptionLabel(confirmed):(av.options.length?'Fecha por confirmar':'Esperando propuestas')}</strong><small>${selected.length?`Has marcado: ${selected.join(', ')}`:'Todavía no has marcado disponibilidad.'}</small></div>${directVote}<button class="primary profile-availability-open" type="button" data-player-pending="${pending.id}">${confirmed?'Ver disponibilidad completa':(editableVote?'Ver disponibilidad completa':'Ver disponibilidad')}</button></article>`;
-    $('#playerPendingMatch [data-player-pending]')?.addEventListener('click',e=>openAvailability(e.currentTarget.dataset.playerPending));
-    $$('#playerPendingMatch [data-profile-vote]').forEach(btn=>btn.addEventListener('click',()=>{if(!canVoteFor(name,pending.id))return;const d=availabilityData(pending.id);d.votes[name]=d.votes[name]||{};d.votes[name][btn.dataset.profileVote]=!d.votes[name][btn.dataset.profileVote];d.responded[name]=true;saveAvailabilityData(pending.id,d);renderPlayerProfile(name);renderHomeDashboard()}));
-    $('#playerPendingMatch [data-profile-none]')?.addEventListener('click',()=>{if(!canVoteFor(name,pending.id))return;const d=availabilityData(pending.id);d.votes[name]={};d.responded[name]=true;saveAvailabilityData(pending.id,d);renderPlayerProfile(name);renderHomeDashboard()});
+    const opp=pending.home===meta.key?pending.away:pending.home,av=availabilityData(pending.id),confirmed=av.options.find(o=>o.id===av.confirmedOptionId);
+    $('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt="" data-team-profile="${opp}" class="team-profile-target"><div><strong>${teamProfileInline(meta.key)} vs ${teamProfileInline(opp)}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>${confirmed?availabilityOptionLabel(confirmed):'Fecha por decidir'}</strong><small>La fecha y disponibilidad las gestiona la administración.</small></div></article>`;
   }else{$('#playerPendingMatch').innerHTML='<div class="empty-state">No quedan partidos pendientes para este jugador.</div>'}
   const activity=[];
   fixtures.forEach(f=>{const state=getStateFor(f.id),relevant=(state.events||[]).filter(e=>e.scorer===name||e.assist===name),isMvp=state.mvp===name;if(!relevant.length&&!isMvp)return;const details=[];relevant.forEach(e=>{const score=e.scoreAfter?` · ${e.scoreAfter}`:'';if(e.scorer===name)details.push(`<span>⚽ Gol${score} · ${e.half}ª parte · ${e.minute}'${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ +2 goles de competición':''}</span>`);if(e.assist===name)details.push(`<span>🅰️ Asistencia a ${playerProfileButton(e.scorer)}${score} · ${e.half}ª parte · ${e.minute}'</span>`)});if(isMvp)details.push('<span>⭐ MVP del partido</span>');activity.push(`<article class="player-history-item"><div class="history-match-head"><div><strong>Jornada ${f.round}</strong><span>${teamProfileInline(f.home)} ${state.finished?state.homeScore:'–'} ${state.finished?state.awayScore:'–'} ${teamProfileInline(f.away)}</span></div><span class="history-status">${state.finished?'Finalizado':statusForFixture(f)}</span></div><div class="history-events">${details.join('')}</div></article>`)});
