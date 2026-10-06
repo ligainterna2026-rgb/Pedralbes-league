@@ -87,7 +87,7 @@ function currentUser(){return authStateUser}
 async function loadCurrentUserFromSupabase(authUser=null){
   try{
     const user=authUser || (await supabaseClient.auth.getUser()).data.user;
-    if(!user){authStateUser=null;authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();return null}
+    if(!user){authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();return null}
     const [{data:profile},{data:roles},{data:player}] = await Promise.all([
       supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
       supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
@@ -99,11 +99,15 @@ async function loadCurrentUserFromSupabase(authUser=null){
       displayName:profile?.display_name || user.user_metadata?.display_name || (user.email||'').split('@')[0],
       linkedPlayer:player?.name || null,
       linkedPlayerId:player?.id || null,
+      linkedPlayerPhoto:player?.photo_url || null,
       roles:(roles||[]).map(r=>r.role)
     };
     authReady=true;
+    await hydrateRefereePermissions();
     refreshPermissionViews();
     await hydrateMatchDataFromSupabase();
+    await migrateLinkedLocalPhoto();
+    if(document.body.dataset.view==='cuenta')renderAccountPanel();
     return authStateUser;
   }catch(err){
     console.error('Error cargando sesión',err);
@@ -145,7 +149,15 @@ async function renderRegisterPlayerOptions(){
 }
 function refereeAssignments(){return store.get('league:refereeAssignments',{})}
 function assignedRefEmail(matchId){return refereeAssignments()[matchId]||''}
-function canManageMatch(matchId){const u=currentUser();if(!u)return false;if(hasRole('admin',u))return true;return hasRole('referee',u)&&assignedRefEmail(matchId).toLowerCase()===u.email.toLowerCase()}
+let remoteRefereeMatchIds=new Set();
+async function hydrateRefereePermissions(){
+  const u=currentUser();remoteRefereeMatchIds=new Set();if(!u)return;
+  if(hasRole('admin',u)){remoteRefereeMatchIds=new Set(fixtures.map(f=>f.id));return}
+  if(!hasRole('referee',u))return;
+  const checks=await Promise.all(fixtures.map(async f=>{const {data,error}=await supabaseClient.rpc('can_referee',{fixture:f.id});return !error&&data?f.id:null}));
+  remoteRefereeMatchIds=new Set(checks.filter(Boolean));
+}
+function canManageMatch(matchId){const u=currentUser();if(!u)return false;if(hasRole('admin',u))return true;return hasRole('referee',u)&&(remoteRefereeMatchIds.has(matchId)||assignedRefEmail(matchId).toLowerCase()===u.email.toLowerCase())}
 function canEditPlayerPhoto(name){return isAdmin() || (isPlayer() && linkedPlayer()===name)}
 function canVoteFor(name,matchId){
   if(isAdmin())return true;
@@ -227,9 +239,16 @@ function renderAccountPanel(){
   const u=currentUser();
   if(!u){$('#accountPanel').innerHTML='<div class="panel"><h2>Estás navegando como visitante</h2><p class="muted">Puedes ver toda la competición, pero no editar datos.</p><button class="primary" type="button" data-open-access>Entrar o registrarse</button></div>';return}
   const playerMeta=u.linkedPlayer?allPlayers.find(p=>p.name===u.linkedPlayer):null;
-  $('#accountPanel').innerHTML=`<section class="panel account-summary"><div class="account-summary-main"><span class="account-big-avatar">${playerMeta?escapeHtml(playerMeta.name.split(' ').map(x=>x[0]).slice(0,2).join('')):'👤'}</span><div><span class="eyebrow">SESIÓN ACTIVA</span><h2>${escapeHtml(u.linkedPlayer||u.displayName||'Usuario')}</h2><p class="muted">${escapeHtml(u.email)}</p><div class="role-row">${roleBadges(u)}</div></div></div><div class="account-actions">${u.linkedPlayer?`<button class="secondary" type="button" data-player-profile="${escapeHtml(u.linkedPlayer)}">Abrir mi ficha</button>`:''}${isAdmin()?'<button class="ghost" type="button" data-open-admin>Panel de administración</button>':''}<button id="logoutBtn" class="ghost" type="button">Cerrar sesión</button></div></section><div class="notice">${u.linkedPlayer?'Tu cuenta está vinculada a '+escapeHtml(u.linkedPlayer)+'. El rol Jugador se activa automáticamente; los permisos de Árbitro o Administrador solo los asigna el administrador principal.':'Esta cuenta no está vinculada a un jugador.'}</div>`;
+  const team=playerMeta?teams[playerMeta.key]:null;
+  const photo=u.linkedPlayer?playerPhoto(u.linkedPlayer):null;
+  const initials=u.linkedPlayer?u.linkedPlayer.split(' ').map(x=>x[0]).slice(0,2).join(''):'👤';
+  const avatar=photo?`<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(u.linkedPlayer)}">`:escapeHtml(initials);
+  const linkedBlock=u.linkedPlayer?`<div class="account-player-link"><div class="account-linked-avatar">${avatar}</div><div><span class="eyebrow">JUGADOR VINCULADO</span><strong>${escapeHtml(u.linkedPlayer)}</strong><small>${escapeHtml(team?.name||'')}</small></div></div>`:'';
+  const photoControls=u.linkedPlayer?`<div class="account-photo-tools"><label class="photo-upload-btn" for="accountPhotoInput">📷 Cambiar foto</label><input id="accountPhotoInput" type="file" accept="image/*" hidden><button id="accountRemovePhoto" class="ghost" type="button" ${photo?'':'disabled'}>Quitar foto</button><span id="accountPhotoStatus" class="muted">La foto queda guardada en tu jugador y se verá en todos los dispositivos.</span></div>`:'';
+  $('#accountPanel').innerHTML=`<section class="panel account-summary"><div class="account-summary-main"><span class="account-big-avatar">${avatar}</span><div><span class="eyebrow">SESIÓN ACTIVA</span><h2>${escapeHtml(u.linkedPlayer||u.displayName||'Usuario')}</h2><p class="muted">${escapeHtml(u.email)}</p><div class="role-row">${roleBadges(u)}</div></div></div><div class="account-actions">${u.linkedPlayer?`<button class="secondary" type="button" data-player-profile="${escapeHtml(u.linkedPlayer)}">Abrir mi ficha</button>`:''}${isAdmin()?'<button class="ghost" type="button" data-open-admin>Panel de administración</button>':''}<button id="logoutBtn" class="ghost" type="button">Cerrar sesión</button></div></section>${u.linkedPlayer?`<section class="panel account-linked-player">${linkedBlock}${photoControls}</section>`:''}<div class="notice">${u.linkedPlayer?'Esta cuenta está vinculada a '+escapeHtml(u.linkedPlayer)+'. La foto se administra aquí y queda asociada a su ficha de jugador.':'Esta cuenta no está vinculada a un jugador.'}</div>`;
   $('#logoutBtn')?.addEventListener('click',async()=>{await setSession(null);navigate('inicio')});
   $('[data-open-admin]')?.addEventListener('click',()=>navigate('admin'));
+  bindAccountPhotoControls();
 }
 document.addEventListener('click',e=>{const a=e.target.closest('[data-open-access]');if(a)navigate('acceso')});
 
@@ -280,7 +299,7 @@ function getStateFor(id){return store.get(`match:${id}`,defaultMatchState())}
 function playersOf(teamKey){return teams[teamKey].players.map(p=>p[0])}
 function findFixture(id){return fixtures.find(f=>f.id===id)}
 function fixtureLabel(f){return `J${f.round} · ${teams[f.home].name} vs ${teams[f.away].name}`}
-function playerPhoto(name){return store.get(`playerPhoto:${name}`,null)}
+function playerPhoto(name){return remotePlayerByName.get(name)?.photo_url || (authStateUser?.linkedPlayer===name?authStateUser.linkedPlayerPhoto:null) || store.get(`playerPhoto:${name}`,null)}
 function playerAvatarHtml(name,extraClass=''){const photo=playerPhoto(name);return photo?`<span class="avatar ${extraClass}"><img src="${photo}" alt="Foto de ${escapeHtml(name)}"></span>`:`<span class="avatar ${extraClass}">${escapeHtml(name.split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`}
 const playerProfileButton=name=>`<button type="button" class="player-name-button" data-player-profile="${escapeHtml(name)}">${escapeHtml(name)}</button>`;
 
@@ -314,17 +333,30 @@ function availabilityStatus(matchId){
   return av.options.length?`${av.options.length} días para votar`:'Fecha por decidir';
 }
 function statusForFixture(f){const s=getStateFor(f.id);if(s.finished)return `${s.homeScore}–${s.awayScore}`;if(s.started)return `● EN JUEGO · ${s.homeScore}–${s.awayScore}`;return availabilityStatus(f.id)}
+function fixtureQuickActions(f,context='round'){
+  const s=getStateFor(f.id),editable=canManageMatch(f.id),prefix=context==='home'?'home-':'';
+  if(s.finished)return `<button class="ghost compact-btn" type="button" data-${prefix}acta="${f.id}">📋 Ver acta</button>`;
+  if(s.started)return `<button class="${editable?'primary':'ghost'} compact-btn" type="button" data-${prefix}live="${f.id}">${editable?'🎛️ Gestionar partido':'🔴 Ver directo'}</button>`;
+  return `<button class="ghost compact-btn" type="button" data-${prefix}availability="${f.id}">📅 Confirmar asistencia</button>${editable?`<button class="primary compact-btn" type="button" data-${prefix}start="${f.id}">⚽ Iniciar partido</button>`:''}`;
+}
+function bindFixtureQuickActions(root=document){
+  root.querySelectorAll('[data-acta],[data-live],[data-start]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openLiveMatch(btn.dataset.acta||btn.dataset.live||btn.dataset.start)}));
+  root.querySelectorAll('[data-availability]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openAvailability(btn.dataset.availability)}));
+  root.querySelectorAll('[data-home-acta],[data-home-live],[data-home-start]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openLiveMatch(btn.dataset.homeActa||btn.dataset.homeLive||btn.dataset.homeStart)}));
+  root.querySelectorAll('[data-home-availability]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openAvailability(btn.dataset.homeAvailability)}));
+}
 function renderRounds(){
   const rounds=roundNumbers();
   if(!rounds.length){$('#rounds').innerHTML='<div class="empty-state">No hay jornadas configuradas.</div>';return}
   $('#rounds').innerHTML=rounds.map(r=>{
     const fs=fixtures.filter(f=>Number(f.round)===Number(r));
     return `<article class="round-card"><div class="round-head"><h3>Jornada ${r}</h3><span>${escapeHtml(roundRestText(r))}</span></div>${fs.map(f=>{
-      const s=getStateFor(f.id),playing=s.started&&!s.finished,finished=s.finished,center=finished||playing?`${s.homeScore}–${s.awayScore}`:'VS',action=finished||playing?'directo':'disponibilidad';
-      return `<button class="fixture-button ${playing?'fixture-live':''}" data-match="${f.id}" data-match-action="${action}" aria-label="Abrir ${action} de ${teams[f.home].name} contra ${teams[f.away].name}"><div class="fixture-team"><img src="${teams[f.home].logo}" alt=""><span>${teams[f.home].name}</span></div><b class="fixture-score">${center}</b><div class="fixture-team right"><span>${teams[f.away].name}</span><img src="${teams[f.away].logo}" alt=""></div><span class="fixture-status">${statusForFixture(f)}</span></button>`;
+      const s=getStateFor(f.id),playing=s.started&&!s.finished,finished=s.finished,center=finished||playing?`${s.homeScore}–${s.awayScore}`:'VS';
+      return `<div class="fixture-row-wrap ${playing?'fixture-live':''}"><button class="fixture-button ${playing?'fixture-live':''}" type="button" data-match-primary="${f.id}" aria-label="Abrir partido de ${teams[f.home].name} contra ${teams[f.away].name}"><div class="fixture-team"><img src="${teams[f.home].logo}" alt=""><span>${teams[f.home].name}</span></div><b class="fixture-score">${center}</b><div class="fixture-team right"><span>${teams[f.away].name}</span><img src="${teams[f.away].logo}" alt=""></div><span class="fixture-status">${statusForFixture(f)}</span></button><div class="fixture-inline-actions">${fixtureQuickActions(f,'round')}</div></div>`;
     }).join('')}</article>`;
   }).join('');
-  $$('#rounds [data-match]').forEach(b=>b.addEventListener('click',()=>b.dataset.matchAction==='directo'?openLiveMatch(b.dataset.match):openAvailability(b.dataset.match)));
+  $$('#rounds [data-match-primary]').forEach(b=>b.addEventListener('click',()=>{const f=findFixture(b.dataset.matchPrimary),state=f?getStateFor(f.id):null;if(!f)return;(state?.finished||state?.started)?openLiveMatch(f.id):openAvailability(f.id)}));
+  bindFixtureQuickActions($('#rounds'));
 }
 function openAvailability(matchId){if(!findFixture(matchId))return;$('#availabilityMatch').value=matchId;renderAvailability();navigate('disponibilidad')}
 
@@ -502,19 +534,28 @@ function renderHomeDashboard(){
   const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,5),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,5);
   $('#recentResults').innerHTML=finished.length?finished.map(f=>homeMatchHtml(f,true)).join(''):'<div class="empty-state">Todavía no se ha finalizado ningún partido.</div>';
   $('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
-  $$('#recentResults [data-home-acta]').forEach(btn=>btn.addEventListener('click',()=>openLiveMatch(btn.dataset.homeActa)));
-  $$('#upcomingMatches [data-home-availability]').forEach(btn=>btn.addEventListener('click',()=>openAvailability(btn.dataset.homeAvailability)));
+  bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
   const topG=sortedBy('goals')[0],topA=sortedBy('assists')[0],topM=sortedBy('mvps')[0];
   const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
   topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.textContent=n?p.name:'—';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
   renderNextMatchCard();
 }
-function homeMatchHtml(f,finished){const s=getStateFor(f.id);return `<div class="home-match"><div class="club"><img src="${teams[f.home].logo}" alt=""><div><strong>${teams[f.home].name}</strong><small>Jornada ${f.round}</small></div></div><strong>${finished?`${s.homeScore}–${s.awayScore}`:'VS'}</strong><div class="club"><div><strong>${teams[f.away].name}</strong><small>${finished?'Finalizado':availabilityStatus(f.id)}</small><button class="ghost compact-btn" type="button" ${finished?`data-home-acta="${f.id}"`:`data-home-availability="${f.id}"`}>${finished?'Ver acta':'Confirmar asistencia'}</button></div><img src="${teams[f.away].logo}" alt=""></div></div>`}
+function homeMatchHtml(f,finished){
+  const s=getStateFor(f.id),playing=s.started&&!s.finished;
+  return `<div class="home-match home-match-with-actions"><div class="home-match-main"><div class="club"><img src="${teams[f.home].logo}" alt=""><div><strong>${teams[f.home].name}</strong><small>Jornada ${f.round}</small></div></div><strong>${finished||playing?`${s.homeScore}–${s.awayScore}`:'VS'}</strong><div class="club"><div><strong>${teams[f.away].name}</strong><small>${finished?'Finalizado':playing?'En juego':availabilityStatus(f.id)}</small></div><img src="${teams[f.away].logo}" alt=""></div></div><div class="home-match-actions">${fixtureQuickActions(f,'home')}</div></div>`;
+}
 function nextPendingFixture(){return fixtures.find(f=>!getStateFor(f.id).finished)||null}
+function ensureNextMatchRefereeButton(){
+  let btn=$('#nextMatchReferee');if(btn)return btn;
+  btn=document.createElement('button');btn.id='nextMatchReferee';btn.className='secondary full';btn.type='button';btn.hidden=true;$('#startNextMatch')?.insertAdjacentElement('afterend',btn);
+  btn.addEventListener('click',()=>{const id=btn.dataset.match;if(id)openLiveMatch(id)});return btn;
+}
 function renderNextMatchCard(){
-  const f=nextPendingFixture(),btn=$('#startNextMatch');
-  if(!f){$('#nextRoundBadge').textContent='Temporada completada';$('#nextHomeName').textContent='—';$('#nextAwayName').textContent='—';$('#nextHomeLogo').removeAttribute('src');$('#nextAwayLogo').removeAttribute('src');$('#nextMatchStatus').textContent='No quedan partidos pendientes';btn.disabled=true;return}
-  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;$('#nextAwayLogo').src=teams[f.away].logo;$('#nextHomeName').textContent=teams[f.home].name;$('#nextAwayName').textContent=teams[f.away].name;$('#nextMatchStatus').textContent=availabilityStatus(f.id);btn.disabled=false;btn.dataset.match=f.id;btn.textContent=availabilityData(f.id).confirmedOptionId?'📅 Ver partido confirmado':'📅 Confirmar / votar partido';
+  const f=nextPendingFixture(),btn=$('#startNextMatch'),refBtn=ensureNextMatchRefereeButton();
+  if(!f){$('#nextRoundBadge').textContent='Temporada completada';$('#nextHomeName').textContent='—';$('#nextAwayName').textContent='—';$('#nextHomeLogo').removeAttribute('src');$('#nextAwayLogo').removeAttribute('src');$('#nextMatchStatus').textContent='No quedan partidos pendientes';btn.disabled=true;refBtn.hidden=true;return}
+  const state=getStateFor(f.id);
+  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;$('#nextAwayLogo').src=teams[f.away].logo;$('#nextHomeName').textContent=teams[f.home].name;$('#nextAwayName').textContent=teams[f.away].name;$('#nextMatchStatus').textContent=state.started?`● EN JUEGO · ${state.homeScore}–${state.awayScore}`:availabilityStatus(f.id);btn.disabled=false;btn.dataset.match=f.id;btn.textContent=availabilityData(f.id).confirmedOptionId?'📅 Ver disponibilidad':'📅 Confirmar / votar partido';
+  refBtn.hidden=!canManageMatch(f.id);refBtn.dataset.match=f.id;refBtn.textContent=state.started?'🎛️ Gestionar partido':'⚽ Iniciar partido';
 }
 
 function populateMatchSelects(){
@@ -549,7 +590,7 @@ const matchSyncChains=new Map();
 function matchStateHasData(s){return !!(s&&(s.finished||s.started||Number(s.homeScore)>0||Number(s.awayScore)>0||(s.events||[]).length||s.mvp||(s.participants||[]).length))}
 async function loadRemotePlayerIndex(force=false){
   if(remotePlayerByName.size&&!force)return;
-  const {data,error}=await supabaseClient.from('players').select('id,name,team_id');
+  const {data,error}=await supabaseClient.from('players').select('id,name,team_id,photo_url');
   if(error)throw error;
   remotePlayerByName=new Map((data||[]).map(p=>[p.name,p]));remotePlayerById=new Map((data||[]).map(p=>[p.id,p]));
 }
@@ -659,6 +700,8 @@ async function hydrateMatchDataFromSupabase(){
       }
       if(!live.running&&findFixture(live.matchId))restoreLiveClockFromState(live.matchId);
       refreshDataViews();renderLive();
+      if(activePlayerName&&document.body.dataset.view==='jugador')renderPlayerProfile(activePlayerName);
+      if(document.body.dataset.view==='cuenta')renderAccountPanel();
     }catch(err){console.error('No se pudieron cargar los partidos compartidos desde Supabase',err)}
   })().finally(()=>{matchHydratePromise=null});
   return matchHydratePromise;
@@ -958,7 +1001,7 @@ function renderPlayerProfile(name){
   activePlayerName=name;const meta=allPlayers.find(p=>p.name===name);if(!meta)return;const st=playerStats()[name],team=teams[meta.key],photo=playerPhoto(name);
   $('#playerProfileName').textContent=name;$('#playerProfileAvatar').innerHTML=photo?`<img src="${photo}" alt="Foto de ${escapeHtml(name)}">`:escapeHtml(name.split(' ').map(x=>x[0]).slice(0,2).join(''));$('#playerProfileTeam').textContent=team.name;$('#playerProfileTeamLogo').src=team.logo;$('#playerProfileCaptain').hidden=!meta.captain;
   $('#playerProfileGoals').textContent=st.goals;$('#playerProfileAssists').textContent=st.assists;$('#playerProfileMvps').textContent=st.mvps;
-  $('#playerPhotoControls').hidden=!canEditPlayerPhoto(name);$('#removePlayerPhoto').disabled=!photo;
+  $('#playerPhotoControls').hidden=!isAdmin();$('#removePlayerPhoto').disabled=!photo;const photoHelp=$('#playerPhotoHelp');if(photoHelp)photoHelp.textContent='La foto del propio jugador se cambia desde Cuenta. El administrador puede corregir cualquier foto aquí.';
   const pending=fixtures.filter(f=>(f.home===meta.key||f.away===meta.key)&&!getStateFor(f.id).finished).sort((a,b)=>Number(a.round)-Number(b.round))[0];
   if(pending){const opp=pending.home===meta.key?pending.away:pending.home,av=availabilityData(pending.id),confirmed=av.options.find(o=>o.id===av.confirmedOptionId),myVotes=av.votes?.[name]||{},selected=av.options.filter(o=>myVotes[o.id]).map(availabilityVoteLabel);$('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt=""><div><strong>${teams[meta.key].name} vs ${teams[opp].name}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>${confirmed?availabilityOptionLabel(confirmed):(av.options.length?'Fecha por confirmar':'Esperando propuestas')}</strong><small>${selected.length?`Has marcado: ${selected.join(', ')}`:'Todavía no has marcado disponibilidad.'}</small></div><button class="primary" type="button" data-player-pending="${pending.id}">${confirmed?'Ver disponibilidad':'Votar disponibilidad'}</button></article>`;$('#playerPendingMatch [data-player-pending]')?.addEventListener('click',e=>openAvailability(e.currentTarget.dataset.playerPending))}else{$('#playerPendingMatch').innerHTML='<div class="empty-state">No quedan partidos pendientes para este jugador.</div>'}
   const activity=[];
@@ -977,8 +1020,38 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-team-profi
 async function resizeImageFile(file){
   return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=reject;reader.onload=()=>{const img=new Image();img.onerror=reject;img.onload=()=>{const size=512,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d'),side=Math.min(img.width,img.height),sx=(img.width-side)/2,sy=(img.height-side)/2;ctx.drawImage(img,sx,sy,side,side,0,0,size,size);resolve(canvas.toDataURL('image/jpeg',.82))};img.src=reader.result};reader.readAsDataURL(file)})
 }
-$('#playerPhotoInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file||!activePlayerName)return;if(!canEditPlayerPhoto(activePlayerName)){alert('No tienes permiso para cambiar esta foto.');return}if(!file.type.startsWith('image/')){alert('Selecciona una imagen.');return}try{const data=await resizeImageFile(file);store.set(`playerPhoto:${activePlayerName}`,data);renderPlayerProfile(activePlayerName);renderTeams()}catch{alert('No se pudo procesar la imagen.')}finally{e.target.value=''}});
-$('#removePlayerPhoto').addEventListener('click',()=>{if(!activePlayerName||!canEditPlayerPhoto(activePlayerName))return;store.remove(`playerPhoto:${activePlayerName}`);renderPlayerProfile(activePlayerName);renderTeams()});
+function dataUrlToBlob(dataUrl){const parts=dataUrl.split(','),mime=(parts[0].match(/data:([^;]+)/)||[])[1]||'image/jpeg',raw=atob(parts[1]||''),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return new Blob([bytes],{type:mime})}
+async function persistPlayerPhoto(name,fileOrDataUrl){
+  if(!canEditPlayerPhoto(name))throw new Error('No tienes permiso para cambiar esta foto.');
+  await loadRemotePlayerIndex(true);const player=remotePlayerByName.get(name);if(!player)throw new Error('No se encontró el jugador en Supabase.');
+  const dataUrl=typeof fileOrDataUrl==='string'?fileOrDataUrl:await resizeImageFile(fileOrDataUrl),blob=dataUrlToBlob(dataUrl),path=`${player.id}/profile.jpg`;
+  const {error:uploadError}=await supabaseClient.storage.from('player-photos').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(uploadError)throw uploadError;
+  const {data:publicData}=supabaseClient.storage.from('player-photos').getPublicUrl(path);const baseUrl=publicData?.publicUrl;if(!baseUrl)throw new Error('No se pudo obtener la URL de la foto.');
+  const url=`${baseUrl}?v=${Date.now()}`;
+  const {error:updateError}=await supabaseClient.from('players').update({photo_url:url}).eq('id',player.id);if(updateError)throw updateError;
+  remotePlayerByName.set(name,{...player,photo_url:url});remotePlayerById.set(player.id,{...player,photo_url:url});store.remove(`playerPhoto:${name}`);
+  if(authStateUser?.linkedPlayer===name)authStateUser.linkedPlayerPhoto=url;
+  refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
+  return url;
+}
+async function removePersistentPlayerPhoto(name){
+  if(!canEditPlayerPhoto(name))throw new Error('No tienes permiso para quitar esta foto.');
+  await loadRemotePlayerIndex(true);const player=remotePlayerByName.get(name);if(!player)throw new Error('No se encontró el jugador en Supabase.');
+  const path=`${player.id}/profile.jpg`;const {error:storageError}=await supabaseClient.storage.from('player-photos').remove([path]);if(storageError)console.warn('No se pudo borrar el archivo anterior',storageError);
+  const {error:updateError}=await supabaseClient.from('players').update({photo_url:null}).eq('id',player.id);if(updateError)throw updateError;
+  remotePlayerByName.set(name,{...player,photo_url:null});remotePlayerById.set(player.id,{...player,photo_url:null});store.remove(`playerPhoto:${name}`);if(authStateUser?.linkedPlayer===name)authStateUser.linkedPlayerPhoto=null;
+  refreshDataViews();if(activePlayerName===name&&document.body.dataset.view==='jugador')renderPlayerProfile(name);if(document.body.dataset.view==='cuenta')renderAccountPanel();
+}
+function bindAccountPhotoControls(){
+  const input=$('#accountPhotoInput'),remove=$('#accountRemovePhoto'),status=$('#accountPhotoStatus'),name=currentUser()?.linkedPlayer;if(!name)return;
+  input?.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(!file.type.startsWith('image/')){if(status)status.textContent='Selecciona una imagen válida.';return}try{if(status)status.textContent='Guardando foto...';await persistPlayerPhoto(name,file);const st=$('#accountPhotoStatus');if(st)st.textContent='✓ Foto guardada y sincronizada en todos los dispositivos.'}catch(err){console.error(err);const st=$('#accountPhotoStatus');if(st)st.textContent=err?.message||'No se pudo guardar la foto.'}finally{e.target.value=''}});
+  remove?.addEventListener('click',async()=>{try{if(status)status.textContent='Quitando foto...';await removePersistentPlayerPhoto(name)}catch(err){console.error(err);const st=$('#accountPhotoStatus');if(st)st.textContent=err?.message||'No se pudo quitar la foto.'}});
+}
+async function migrateLinkedLocalPhoto(){
+  const name=currentUser()?.linkedPlayer;if(!name||!canEditPlayerPhoto(name))return;await loadRemotePlayerIndex();const player=remotePlayerByName.get(name),local=store.get(`playerPhoto:${name}`,null);if(local&&!player?.photo_url){try{await persistPlayerPhoto(name,local)}catch(err){console.warn('No se pudo migrar la foto local antigua',err)}}
+}
+$('#playerPhotoInput').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file||!activePlayerName)return;if(!isAdmin()){alert('La foto del propio jugador se cambia desde Cuenta.');return}if(!file.type.startsWith('image/')){alert('Selecciona una imagen.');return}try{await persistPlayerPhoto(activePlayerName,file)}catch(err){console.error(err);alert(err?.message||'No se pudo guardar la foto.')}finally{e.target.value=''}});
+$('#removePlayerPhoto').addEventListener('click',async()=>{if(!activePlayerName||!isAdmin())return;try{await removePersistentPlayerPhoto(activePlayerName)}catch(err){console.error(err);alert(err?.message||'No se pudo quitar la foto.')}});
 
 $$('[data-classification-tab]').forEach(btn=>btn.addEventListener('click',()=>{const tab=btn.dataset.classificationTab;$$('[data-classification-tab]').forEach(b=>b.classList.toggle('active',b===btn));$('#classificationGroupPanel').hidden=tab!=='group';$('#classificationKnockoutPanel').hidden=tab!=='knockout'}));
 $('#startNextMatch').addEventListener('click',()=>{const id=$('#startNextMatch').dataset.match;if(!id)return;openAvailability(id)});
@@ -1038,14 +1111,15 @@ async function renderAdmin(){
   const usersWrap=$('#adminUsers');
   if(usersWrap)usersWrap.innerHTML='<div class="empty-state">Cargando usuarios de Supabase...</div>';
 
-  const [{data:profiles,error:profilesError},{data:roles,error:rolesError},{data:dbPlayers,error:playersError}] = await Promise.all([
+  const [{data:profiles,error:profilesError},{data:roles,error:rolesError},{data:dbPlayers,error:playersError},{data:dbAssignments,error:assignmentsError}] = await Promise.all([
     supabaseClient.from('profiles').select('id,email,display_name,created_at').order('created_at',{ascending:true}),
     supabaseClient.from('user_roles').select('user_id,role'),
-    supabaseClient.from('players').select('id,name,team_id,user_id,captain').order('team_id').order('name')
+    supabaseClient.from('players').select('id,name,team_id,user_id,captain,photo_url').order('team_id').order('name'),
+    supabaseClient.from('referee_assignments').select('fixture_id,user_id')
   ]);
 
-  if(profilesError||rolesError||playersError){
-    console.error('Error cargando usuarios',profilesError||rolesError||playersError);
+  if(profilesError||rolesError||playersError||assignmentsError){
+    console.error('Error cargando usuarios',profilesError||rolesError||playersError||assignmentsError);
     if(usersWrap)usersWrap.innerHTML='<div class="empty-state">No se pudieron cargar los usuarios desde Supabase. Recarga la página.</div>';
     return;
   }
@@ -1129,9 +1203,16 @@ async function renderAdmin(){
   }));
 
   const refs=list.filter(u=>u.roles?.includes('referee'));
-  const assigned=refereeAssignments();
-  $('#refereeAssignments').innerHTML=fixtures.map(f=>`<div class="referee-row"><div><strong>Jornada ${f.round}</strong><span>${teams[f.home].name} vs ${teams[f.away].name}</span></div><select data-ref-match="${f.id}"><option value="">Sin árbitro asignado</option>${refs.map(u=>`<option value="${escapeHtml(u.email)}" ${assigned[f.id]===u.email?'selected':''}>${escapeHtml(u.linkedPlayer||u.displayName||u.email)}</option>`).join('')}</select></div>`).join('');
-  $$('#refereeAssignments [data-ref-match]').forEach(sel=>sel.addEventListener('change',()=>{const data=refereeAssignments();if(sel.value)data[sel.dataset.refMatch]=sel.value;else delete data[sel.dataset.refMatch];store.set('league:refereeAssignments',data);refreshPermissionViews()}));
+  const assignedByFixture=new Map((dbAssignments||[]).map(a=>[a.fixture_id,a.user_id]));
+  $('#refereeAssignments').innerHTML=fixtures.map(f=>`<div class="referee-row"><div><strong>Jornada ${f.round}</strong><span>${teams[f.home].name} vs ${teams[f.away].name}</span></div><select data-ref-match="${f.id}"><option value="">Sin árbitro asignado</option>${refs.map(u=>`<option value="${escapeHtml(u.id)}" ${assignedByFixture.get(f.id)===u.id?'selected':''}>${escapeHtml(u.linkedPlayer||u.displayName||u.email)}</option>`).join('')}</select></div>`).join('');
+  $$('#refereeAssignments [data-ref-match]').forEach(sel=>sel.addEventListener('change',async()=>{
+    const fixtureId=sel.dataset.refMatch,userId=sel.value;sel.disabled=true;
+    try{
+      if(userId){const {error}=await supabaseClient.from('referee_assignments').upsert({fixture_id:fixtureId,user_id:userId},{onConflict:'fixture_id'});if(error)throw error}else{const {error}=await supabaseClient.from('referee_assignments').delete().eq('fixture_id',fixtureId);if(error)throw error}
+      const local=refereeAssignments(),chosen=refs.find(x=>x.id===userId);if(chosen)local[fixtureId]=chosen.email;else delete local[fixtureId];store.set('league:refereeAssignments',local);
+      await hydrateRefereePermissions();refreshPermissionViews();
+    }catch(err){console.error(err);alert(err?.message||'No se pudo guardar el árbitro asignado.');await renderAdmin()}finally{sel.disabled=false}
+  }));
 }
 
 
