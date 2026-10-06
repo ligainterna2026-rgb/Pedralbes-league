@@ -233,7 +233,7 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
 .ideal-player-card.pivot{left:50%;top:68px;transform:translateX(-50%)}
 .ideal-player-card.ala-left{left:48px;top:50%;transform:translateY(-50%)}
 .ideal-player-card.ala-right{right:48px;top:50%;transform:translateY(-50%)}
-.ideal-player-card.cierre{left:50%;bottom:220px;transform:translateX(-50%)}
+.ideal-player-card.cierre{left:50%;bottom:315px;transform:translateX(-50%)}
 .ideal-player-card.goalkeeper{left:50%;bottom:32px;transform:translateX(-50%)}
 .ideal-picker{width:100%;display:grid;gap:6px;margin-top:auto}
 .ideal-picker label{display:block;margin:0;font-size:.72rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.9)}
@@ -242,7 +242,7 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
 .ideal-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:4px}
 .ideal-share-hint{margin-top:10px}
 @media(max-width:1200px){.ideal-pitch{min-height:960px}.ideal-player-card{width:220px}.ideal-player-card.ala-left{left:24px}.ideal-player-card.ala-right{right:24px}}
-@media(max-width:900px){.ideal-pitch{min-height:900px}.ideal-player-card{width:190px;min-height:245px}.ideal-avatar,.ideal-empty-avatar{width:70px;height:70px}.ideal-player-card.pivot{top:56px}.ideal-player-card.cierre{bottom:206px}.ideal-player-card.goalkeeper{bottom:28px}}
+@media(max-width:900px){.ideal-pitch{min-height:900px}.ideal-player-card{width:190px;min-height:245px}.ideal-avatar,.ideal-empty-avatar{width:70px;height:70px}.ideal-player-card.pivot{top:56px}.ideal-player-card.cierre{bottom:290px}.ideal-player-card.goalkeeper{bottom:28px}}
 @media(max-width:760px){.ideal-pitch{min-height:auto;display:grid;grid-template-columns:1fr;gap:14px;padding:18px}.ideal-player-card{position:relative;inset:auto !important;transform:none !important;width:100%;max-width:none;min-height:auto}.ideal-pitch .court-line,.ideal-pitch .mid-line,.ideal-pitch .center-circle,.ideal-pitch .penalty-top,.ideal-pitch .penalty-bottom,.ideal-pitch .goal-top,.ideal-pitch .goal-bottom{display:none}}
 
 
@@ -808,3 +808,8 @@ img.team-profile-target:hover {
 .admin-user-tools{display:grid;grid-template-columns:minmax(260px,1.6fr) minmax(180px,.7fr) minmax(180px,.7fr);gap:12px;align-items:end;margin:4px 0 18px;padding:14px;border:1px solid rgba(255,255,255,.075);border-radius:16px;background:rgba(255,255,255,.025)}
 .admin-user-tools label{display:grid;gap:6px;margin:0;min-width:0}.admin-user-tools label>span{font-size:.72rem;font-weight:850;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}.admin-user-tools input,.admin-user-tools select{width:100%;margin:0;min-height:46px}.admin-user-filter-actions{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.admin-user-filter-actions strong{font-size:.84rem}.admin-user-identity{display:flex!important;grid-template-columns:none!important;align-items:center;gap:11px;min-width:0}.admin-user-identity>div{display:grid;gap:3px;min-width:0}.admin-user-identity strong,.admin-user-identity span{overflow-wrap:anywhere}.admin-user-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#4b3339,#25171b);border:1px solid rgba(255,255,255,.1);font-size:.76rem;font-weight:950}.admin-user-avatar img{width:100%;height:100%;object-fit:cover}.admin-user-card[hidden]{display:none!important}
 @media(max-width:760px){.admin-user-tools{grid-template-columns:1fr;padding:12px}.admin-user-filter-actions{grid-column:auto;align-items:stretch}.admin-user-filter-actions .ghost{width:100%}.admin-user-head{gap:10px}.admin-user-avatar{width:40px;height:40px;flex-basis:40px}.admin-user-head>.role-row{justify-content:flex-start}}
+
+
+/* v32.8 · separar cierre y portero en el 5 ideal */
+@media(min-width:901px){.ideal-player-card.cierre{bottom:315px}}
+@media(min-width:761px) and (max-width:900px){.ideal-player-card.cierre{bottom:290px}}
