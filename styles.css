@@ -763,3 +763,43 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   #view-directo.referee-mobile-active.mobile-acta-open>.two-col{gap:12px}
   #view-directo.referee-mobile-active.mobile-acta-open .events-list{max-height:none;overflow:visible}
 }
+
+/* v32.6 · Cualquier equipo visible abre su ficha */
+.team-profile-inline,
+.team-profile-target {
+  cursor: pointer;
+}
+.team-profile-inline {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 7px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 38%, transparent);
+}
+.team-profile-inline:hover,
+.team-profile-inline:focus-visible,
+.team-profile-target:focus-visible {
+  outline: 2px solid var(--gold, #d5ad5c);
+  outline-offset: 3px;
+}
+.team-profile-inline:hover {
+  text-decoration-color: currentColor;
+}
+img.team-profile-target {
+  transition: transform .15s ease, filter .15s ease;
+}
+img.team-profile-target:hover {
+  transform: scale(1.05);
+  filter: brightness(1.08);
+}
+@media (max-width: 760px) {
+  .team-profile-inline { text-underline-offset: 2px; }
+  .fixture-team .team-profile-inline,
+  .home-match .team-profile-inline,
+  .history-match-head .team-profile-inline {
+    white-space: normal;
+  }
+}
