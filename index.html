@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-8" />
+  <link rel="stylesheet" href="styles.css?v=32-9" />
 </head>
 <body>
   <header class="topbar">
@@ -407,7 +407,7 @@
           <label class="admin-user-search"><span>Buscar usuario</span><input id="adminUserSearch" type="search" placeholder="Nombre, jugador o correo..." autocomplete="off"></label>
           <label><span>Equipo</span><select id="adminUserTeamFilter"><option value="">Todos los equipos</option></select></label>
           <label><span>Rol</span><select id="adminUserRoleFilter"><option value="">Todos los roles</option><option value="player">Jugador</option><option value="referee">Árbitro</option><option value="admin">Administrador</option><option value="none">Sin rol especial</option></select></label>
-          <div class="admin-user-filter-actions"><strong id="adminUserCount">0 usuarios</strong><button id="clearAdminUserFilters" class="ghost" type="button">Limpiar filtros</button></div>
+          <div class="admin-user-filter-actions"><strong id="adminUserCount">Busca un usuario</strong><button id="showAllAdminUsers" class="secondary" type="button">Mostrar todos</button><button id="clearAdminUserFilters" class="ghost" type="button">Limpiar filtros</button></div>
         </div>
         <div id="adminUsers" class="admin-users"></div>
         <div id="adminUsersEmptyFilter" class="empty-state" hidden>No hay usuarios que coincidan con la búsqueda.</div>
@@ -489,6 +489,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-8"></script>
+  <script src="app.js?v=32-9"></script>
 </body>
 </html>

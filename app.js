@@ -88,7 +88,7 @@ function currentUser(){return authStateUser}
 async function loadCurrentUserFromSupabase(authUser=null){
   try{
     const user=authUser || (await supabaseClient.auth.getUser()).data.user;
-    if(!user){authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();return null}
+    if(!user){authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();restoreLastViewAfterAuth();return null}
     const [{data:profile},{data:roles},{data:player}] = await Promise.all([
       supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
       supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
@@ -109,10 +109,11 @@ async function loadCurrentUserFromSupabase(authUser=null){
     await hydrateMatchDataFromSupabase();
     await migrateLinkedLocalPhoto();
     if(document.body.dataset.view==='cuenta')renderAccountPanel();
+    restoreLastViewAfterAuth();
     return authStateUser;
   }catch(err){
     console.error('Error cargando sesión',err);
-    authStateUser=null;authReady=true;refreshPermissionViews();return null;
+    authStateUser=null;authReady=true;refreshPermissionViews();restoreLastViewAfterAuth();return null;
   }
 }
 async function setSession(email){
@@ -168,8 +169,19 @@ function canVoteFor(name,matchId){
 }
 
 let viewHistory=[];
+const RESTORABLE_VIEWS=new Set(['inicio','jornadas','clasificacion','equipos','goleadores','asistencias','mvps','jugadores','streaming','disponibilidad','premios','directo','cuenta','acceso','admin']);
+let pendingRestoredView=sessionStorage.getItem('league:lastView')||'inicio';
+let restoredViewOnce=false;
+function rememberView(view){if(RESTORABLE_VIEWS.has(view))sessionStorage.setItem('league:lastView',view)}
+function restoreLastViewAfterAuth(){
+  if(restoredViewOnce)return;restoredViewOnce=true;
+  const wanted=RESTORABLE_VIEWS.has(pendingRestoredView)?pendingRestoredView:'inicio';
+  navigate(wanted,{fromPop:true,fromBack:true,replaceHistory:true});
+  history.replaceState({leagueInternal:true,leagueView:document.body.dataset.view||wanted,leagueDepth:0},'',location.href);
+}
 function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
   if(view==='admin'&&!isAdmin())view=currentUser()?'cuenta':'acceso';
+  rememberView(view);
   const current=document.body.dataset.view;
   if(!fromBack&&!fromPop&&current&&current!==view){
     viewHistory.push(current);
@@ -1198,23 +1210,29 @@ async function renderAdmin(){
     teamFilter.value=current;
   }
   const normalizeAdminSearch=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  let showAllAdminUsers=false;
+  const showAllBtn=$('#showAllAdminUsers');
   const applyAdminUserFilters=()=>{
     const q=normalizeAdminSearch(searchInput?.value),team=teamFilter?.value||'',role=roleFilter?.value||'';
+    const hasFilters=!!(q||team||role);
     let visible=0;
     $$('#adminUsers .admin-user-card').forEach(card=>{
       const haystack=normalizeAdminSearch(card.dataset.userSearch),teamOk=!team||card.dataset.userTeam===team;
       const roleList=(card.dataset.userRoles||'').split(',').filter(Boolean);
       const roleOk=!role||(role==='none'?roleList.length===0:roleList.includes(role));
-      const show=(!q||haystack.includes(q))&&teamOk&&roleOk;
+      const matches=(!q||haystack.includes(q))&&teamOk&&roleOk;
+      const show=(hasFilters||showAllAdminUsers)&&matches;
       card.hidden=!show;if(show)visible++;
     });
-    if(countEl)countEl.textContent=`${visible} de ${list.length} usuario${list.length===1?'':'s'}`;
-    if(emptyFilter)emptyFilter.hidden=visible!==0;
+    if(countEl)countEl.textContent=hasFilters||showAllAdminUsers?`${visible} de ${list.length} usuario${list.length===1?'':'s'}`:`${list.length} usuarios registrados · busca o filtra para mostrarlos`;
+    if(emptyFilter){emptyFilter.textContent=hasFilters?'No hay usuarios que coincidan con la búsqueda.':'Usa el buscador o pulsa “Mostrar todos”.';emptyFilter.hidden=(visible!==0)||(showAllAdminUsers&&!hasFilters)}
+    if(showAllBtn)showAllBtn.textContent=showAllAdminUsers?'Ocultar todos':'Mostrar todos';
   };
   searchInput?.addEventListener('input',applyAdminUserFilters);
   teamFilter?.addEventListener('change',applyAdminUserFilters);
   roleFilter?.addEventListener('change',applyAdminUserFilters);
-  $('#clearAdminUserFilters')?.addEventListener('click',()=>{if(searchInput)searchInput.value='';if(teamFilter)teamFilter.value='';if(roleFilter)roleFilter.value='';applyAdminUserFilters();searchInput?.focus()});
+  showAllBtn?.addEventListener('click',()=>{showAllAdminUsers=!showAllAdminUsers;applyAdminUserFilters()});
+  $('#clearAdminUserFilters')?.addEventListener('click',()=>{if(searchInput)searchInput.value='';if(teamFilter)teamFilter.value='';if(roleFilter)roleFilter.value='';showAllAdminUsers=false;applyAdminUserFilters();searchInput?.focus()});
   applyAdminUserFilters();
 
   $$('#adminUsers [data-save-user]').forEach(btn=>btn.addEventListener('click',async()=>{
