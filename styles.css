@@ -361,7 +361,6 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   #view-directo.referee-mobile-active>.two-col,
   #view-directo.referee-mobile-active>#matchParticipantsPanel{display:none}
   #view-directo.referee-mobile-active.mobile-acta-open>.two-col{display:grid;grid-template-columns:1fr;margin-top:14px}
-  #view-directo.referee-mobile-active.mobile-acta-open>.two-col>#liveMvpPanel{display:none!important}
   #view-directo.referee-mobile-active.mobile-acta-open>#matchParticipantsPanel:not([hidden]){display:block}
 
   .mobile-referee-mode:not([hidden]){display:block;border:1px solid rgba(255,255,255,.10);border-radius:22px;background:linear-gradient(180deg,rgba(32,17,21,.98),rgba(19,12,14,.98));padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.30)}
@@ -375,7 +374,8 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   .mobile-score-divider{font-size:1.4rem;font-weight:900;color:var(--muted);align-self:center;margin-top:105px;text-align:center}
   .mobile-goal-button{width:100%;min-height:58px;border-radius:16px;border:1px solid #db3943;background:linear-gradient(180deg,#c51d29,#951019);color:#fff;font-size:1.12rem;font-weight:950;padding:0 8px}
   .mobile-goal-button:disabled{opacity:.45}
-  .mobile-primary-actions{display:grid;grid-template-columns:1.4fr .8fr;gap:8px;margin-top:12px}.mobile-primary-actions button{min-height:50px}
+  .mobile-viewer-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.mobile-viewer-actions button{min-height:48px}
+  .mobile-primary-actions{display:grid;grid-template-columns:1.4fr .8fr;gap:8px;margin-top:8px}.mobile-primary-actions button{min-height:50px}
   .mobile-more-panel{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}.mobile-control-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mobile-control-grid button{min-height:48px;padding:0 10px}.mobile-admin-jump{margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}.mobile-time-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.mobile-time-inputs label{font-size:.72rem;color:var(--muted)}.mobile-time-inputs input{margin-top:4px;font-size:1rem}
   .mobile-live-toast{position:sticky;bottom:10px;z-index:28;margin-top:12px;padding:11px 12px;border-radius:14px;background:#f5f0f1;color:#251116;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);font-weight:850}.mobile-live-toast button{border:0;background:#251116;color:#fff;border-radius:10px;min-height:38px;padding:0 12px;font-weight:850}
 
@@ -752,4 +752,14 @@ body[data-view="streaming"]{--page-bg-image:url('assets/header-foto.jpg');--page
   #matchParticipants .match-participant-row{padding:10px!important;gap:9px!important}
   #matchParticipants .match-participant-check{width:32px;height:32px;flex-basis:32px}
   #matchParticipants .match-participant-check input{width:28px;height:28px}
+}
+
+/* v32.5 · acta móvil pública y controles solo para árbitro/admin */
+@media(max-width:760px){
+  #mobileRefereeMode [hidden]{display:none!important}
+  #view-directo.referee-mobile-active.mobile-acta-open>.two-col>#liveMvpPanel:not([hidden]){display:block!important}
+  #view-directo.referee-mobile-active.mobile-acta-open>.two-col>#liveMvpPanel select[hidden],
+  #view-directo.referee-mobile-active.mobile-acta-open>.two-col>#liveMvpPanel button[hidden]{display:none!important}
+  #view-directo.referee-mobile-active.mobile-acta-open>.two-col{gap:12px}
+  #view-directo.referee-mobile-active.mobile-acta-open .events-list{max-height:none;overflow:visible}
 }

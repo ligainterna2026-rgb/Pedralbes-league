@@ -767,16 +767,22 @@ function goalPickerPlayers(teamKey,state){
 }
 function renderMobileReferee(f,s,editable){
   const wrap=$('#mobileRefereeMode'),view=$('#view-directo');if(!wrap||!view)return;
-  const active=!!editable&&isMobileRefereeViewport();wrap.hidden=!active;view.classList.toggle('referee-mobile-active',active);
+  const active=isMobileRefereeViewport();wrap.hidden=!active;view.classList.toggle('referee-mobile-active',active);
   if(!active){view.classList.remove('mobile-acta-open');return}
-  $('#mobileLiveHalf').textContent=`${live.half}ª PARTE`;$('#mobileTimer').textContent=timeText(live.remaining);
+  $('#mobileLiveHalf').textContent=s.finished?'FINAL':`${live.half}ª PARTE`;$('#mobileTimer').textContent=s.finished?'FINAL':timeText(live.remaining);
   $('#mobileHomeLogo').src=teams[f.home].logo;$('#mobileAwayLogo').src=teams[f.away].logo;$('#mobileHomeName').textContent=teams[f.home].name;$('#mobileAwayName').textContent=teams[f.away].name;$('#mobileHomeScore').textContent=s.homeScore;$('#mobileAwayScore').textContent=s.awayScore;
+  const homeGoal=$('#mobileHomeGoal'),awayGoal=$('#mobileAwayGoal'),manageActions=$('#mobileManageActions'),morePanel=$('#mobileMorePanel');
+  if(homeGoal)homeGoal.hidden=!editable;if(awayGoal)awayGoal.hidden=!editable;if(manageActions)manageActions.hidden=!editable;
+  if(!editable&&morePanel)morePanel.hidden=true;
   $('#mobileStartPause').textContent=live.running?'⏸ Pausar':'▶ Iniciar';$('#mobileHalfSwitch').textContent=live.half===1?'Ir a 2ª parte':'Ir a 1ª parte';
   $('#mobileHomeGoal').textContent=isDoubleGoalActive()?'⚡ GOL x2':'⚽ GOL';$('#mobileAwayGoal').textContent=isDoubleGoalActive()?'⚡ GOL x2':'⚽ GOL';
   const adminJump=$('#mobileAdminTimeJump');if(adminJump)adminJump.hidden=!isAdmin();
   if(isAdmin()&&document.activeElement!==$('#mobileJumpMinute')&&document.activeElement!==$('#mobileJumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#mobileJumpMinute').value=Math.floor(elapsed/60);$('#mobileJumpSecond').value=elapsed%60}
   const canCorrectFinished=s.finished&&isAdmin();$('#mobileHomeGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileAwayGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileUndoGoal').disabled=!s.events?.length||(s.finished&&!canCorrectFinished);$('#mobileFinishMatch').disabled=!!s.finished;
   $('#mobileMvpBtn').textContent=s.mvp?`⭐ MVP · ${s.mvp}`:'⭐ Elegir MVP';
+  const actaOpen=view.classList.contains('mobile-acta-open');
+  if($('#mobileQuickActaBtn'))$('#mobileQuickActaBtn').textContent=actaOpen?'✕ Cerrar acta':'📋 Ver acta';
+  if($('#mobileActaBtn'))$('#mobileActaBtn').textContent=actaOpen?'✕ Cerrar acta':'📋 Ver acta';
   updateSpecialRule();
 }
 let mobileToastTimer=null;
@@ -784,7 +790,7 @@ function showMobileLiveToast(text){const box=$('#mobileLiveToast');if(!box||!isM
 function renderLive(){
   const f=findFixture(live.matchId),s=getMatchState(),editable=canManageMatch(live.matchId);if(!f)return;
   $('#liveEyebrow').textContent=s.finished?'ACTA DEL PARTIDO':(editable?'MODO ÁRBITRO':'EN DIRECTO');$('#liveDescription').textContent=s.finished?'Consulta el resultado, los goles, las asistencias y el MVP. El administrador puede corregir el acta incluso después de finalizar el partido.':(editable?'Tienes permisos para gestionar este partido.':'Sigue el marcador, el tiempo y los eventos. Solo el árbitro asignado puede editar.');
-  $('#liveHalfControls').hidden=!editable;$('#liveTimerActions').hidden=!editable;$('#liveEventActions').hidden=!editable;$('#liveMvpPanel').hidden=!editable;$$('.live-editor-control').forEach(el=>el.hidden=!editable);
+  $('#liveHalfControls').hidden=!editable;$('#liveTimerActions').hidden=!editable;$('#liveEventActions').hidden=!editable;$('#liveMvpPanel').hidden=false;$('#mvpSelect').hidden=!editable;$('#saveMvp').hidden=!editable;$$('.live-editor-control').forEach(el=>el.hidden=!editable);
   const adminTimeJump=$('#adminTimeJump');if(adminTimeJump)adminTimeJump.hidden=!isAdmin();
   if(isAdmin()&&document.activeElement!==$('#jumpMinute')&&document.activeElement!==$('#jumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#jumpMinute').value=Math.floor(elapsed/60);$('#jumpSecond').value=elapsed%60;}
   $('#timer').textContent=timeText(live.remaining);$('#homeName').textContent=teams[f.home].name;$('#awayName').textContent=teams[f.away].name;$('#homeLogo').src=teams[f.home].logo;$('#awayLogo').src=teams[f.away].logo;$('#homeScore').textContent=s.homeScore;$('#awayScore').textContent=s.awayScore;
@@ -853,13 +859,16 @@ function openMobileMvp(){
 $('#mobileMvpPlayers')?.addEventListener('click',e=>{const b=e.target.closest('[data-mobile-mvp]');if(!b)return;const s=getMatchState();s.mvp=b.dataset.mobileMvp;saveMatchState(s);$('#mobileMvpDialog').close();renderLive();refreshDataViews();showMobileLiveToast(`⭐ MVP: ${s.mvp}`)});
 $('#mobileMvpBtn')?.addEventListener('click',openMobileMvp);
 $('#mobileHomeGoal')?.addEventListener('click',()=>openGoal('home'));$('#mobileAwayGoal')?.addEventListener('click',()=>openGoal('away'));
-$('#mobileMoreBtn')?.addEventListener('click',()=>{const panel=$('#mobileMorePanel'),btn=$('#mobileMoreBtn'),open=panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',String(open));btn.textContent=open?'✕ Cerrar':'⋯ Más'});
+function toggleMobileActa(){const view=$('#view-directo');if(!view)return;const open=!view.classList.contains('mobile-acta-open');view.classList.toggle('mobile-acta-open',open);if($('#mobileQuickActaBtn'))$('#mobileQuickActaBtn').textContent=open?'✕ Cerrar acta':'📋 Ver acta';if($('#mobileActaBtn'))$('#mobileActaBtn').textContent=open?'✕ Cerrar acta':'📋 Ver acta'}
+$('#mobileMoreBtn')?.addEventListener('click',()=>{const panel=$('#mobileMorePanel'),btn=$('#mobileMoreBtn'),open=panel.hidden;panel.hidden=!open;btn.setAttribute('aria-expanded',String(open));btn.textContent=open?'✕ Cerrar':'⋯ Gestionar'});
 $('#mobileStartPause')?.addEventListener('click',()=>{(live.running?$('#pauseTimer'):$('#startTimer')).click()});
 $('#mobileHalfSwitch')?.addEventListener('click',()=>{(live.half===1?$('#half2Btn'):$('#half1Btn')).click()});
 $('#mobileUndoGoal')?.addEventListener('click',()=>$('#undoGoal').click());
 $('#mobileFinishMatch')?.addEventListener('click',()=>$('#finishMatch').click());
 $('#mobileStreamBtn')?.addEventListener('click',()=>$('#viewerStreamBtn').click());
-$('#mobileActaBtn')?.addEventListener('click',()=>{const view=$('#view-directo'),open=!view.classList.contains('mobile-acta-open');view.classList.toggle('mobile-acta-open',open);$('#mobileActaBtn').textContent=open?'✕ Cerrar acta':'📋 Ver acta'});
+$('#mobileQuickStreamBtn')?.addEventListener('click',()=>$('#viewerStreamBtn').click());
+$('#mobileActaBtn')?.addEventListener('click',toggleMobileActa);
+$('#mobileQuickActaBtn')?.addEventListener('click',toggleMobileActa);
 $('#mobileApplyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#mobileJumpMinute').value||0)),sec=Math.floor(Number($('#mobileJumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;const s=getMatchState();saveMatchState(s);renderLive()});
 $('#mobileToastUndo')?.addEventListener('click',()=>{clearTimeout(mobileToastTimer);$('#mobileLiveToast').hidden=true;$('#undoGoal').click()});
 window.addEventListener('resize',()=>{if(document.body.dataset.view==='directo')renderLive()});
