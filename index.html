@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-14" />
+  <link rel="stylesheet" href="styles.css?v=32-15" />
 </head>
 <body>
   <header class="topbar">
@@ -74,7 +74,7 @@
 
       <section class="home-overview" aria-label="Resumen de la liga">
         <article class="panel home-summary-card home-standings-card">
-          <div class="panel-head"><div><span class="eyebrow">CLASIFICACIÓN</span><h2>Top 3</h2></div><button class="text-btn" data-go="clasificacion">Ver completa</button></div>
+          <div class="panel-head"><div><span class="eyebrow">CLASIFICACIÓN</span><h2>Los 5 equipos</h2></div><button class="text-btn" data-go="clasificacion">Ver completa</button></div>
           <div id="homeStandingsTop" class="home-standings-top"></div>
         </article>
         <article class="panel home-summary-card">
@@ -88,7 +88,7 @@
       </section>
 
       <section class="panel home-stats home-highlight-panel">
-        <div class="panel-head"><div><span class="eyebrow">ESTADÍSTICAS</span><h2>Jugadores destacados</h2></div><button class="text-btn" data-go="jugadores">Ver ranking</button></div>
+        <div class="panel-head home-highlight-head"><div><span class="eyebrow">ESTADÍSTICAS DE LA JORNADA</span><h2 id="homeHighlightsTitle">Jugadores destacados</h2></div><div class="home-highlight-actions"><select id="homeHighlightsRound" class="compact-select" aria-label="Elegir jornada"></select><button class="text-btn" data-go="jugadores">Ver ranking</button></div></div>
         <div class="stats-cards">
           <div><span class="stat-label">Máximo goleador</span><button id="homeTopScorer" class="player-name-button stat-player" type="button">—</button><small id="homeTopScorerMeta">0 goles</small></div>
           <div><span class="stat-label">Máximo asistente</span><button id="homeTopAssist" class="player-name-button stat-player" type="button">—</button><small id="homeTopAssistMeta">0 asistencias</small></div>
@@ -503,6 +503,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-14"></script>
+  <script src="app.js?v=32-15"></script>
 </body>
 </html>

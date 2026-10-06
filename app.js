@@ -552,16 +552,44 @@ function renderTeamProfile(key){
   $$('#teamRecentMatches [data-team-live]').forEach(b=>b.addEventListener('click',()=>openLiveMatch(b.dataset.teamLive)));
 }
 function teamMatchHtml(f,key,finished){const s=getStateFor(f.id),opponent=f.home===key?f.away:f.home,isHome=f.home===key,score=finished?(isHome?`${s.homeScore}–${s.awayScore}`:`${s.awayScore}–${s.homeScore}`):'VS';return `<article class="team-match-row"><img src="${teams[opponent].logo}" alt="" data-team-profile="${opponent}" class="team-profile-target"><div><strong>${teamProfileInline(opponent)}</strong><small>Jornada ${f.round} · ${finished?'Finalizado':availabilityStatus(f.id)}</small></div><b>${score}</b><button class="ghost compact-btn" type="button" ${finished?`data-team-live="${f.id}"`:`data-team-match="${f.id}"`}>${finished?'Ver acta':'Disponibilidad'}</button></article>`}
+
+function homeRoundPlayerStats(round){
+  const stats={};allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,realGoals:0,assists:0,mvps:0});
+  fixtures.filter(f=>Number(f.round)===Number(round)).forEach(f=>{
+    const s=getStateFor(f.id);
+    (s.events||[]).forEach(e=>{
+      if(stats[e.scorer]){stats[e.scorer].goals+=Number(e.competitionValue ?? e.value ?? 1);stats[e.scorer].realGoals+=Number(e.realValue ?? 1)}
+      if(e.assist&&stats[e.assist])stats[e.assist].assists+=1;
+    });
+    if(s.mvp&&stats[s.mvp])stats[s.mvp].mvps+=1;
+  });
+  return Object.values(stats);
+}
+function defaultHomeHighlightsRound(){
+  const rounds=roundNumbers();
+  const withData=rounds.filter(r=>fixtures.some(f=>Number(f.round)===Number(r)&&(()=>{const s=getStateFor(f.id);return !!(s.finished||s.events?.length||s.mvp)})()));
+  return withData.length?Math.max(...withData):rounds[0]||1;
+}
+function renderHomeRoundHighlights(){
+  const select=$('#homeHighlightsRound');if(!select)return;
+  const rounds=roundNumbers(),previous=Number(select.value),selected=rounds.includes(previous)?previous:defaultHomeHighlightsRound();
+  select.innerHTML=rounds.map(r=>`<option value="${r}" ${Number(r)===Number(selected)?'selected':''}>Jornada ${r}</option>`).join('');
+  select.onchange=()=>renderHomeRoundHighlights();
+  const round=Number(select.value||selected),rows=homeRoundPlayerStats(round);
+  $('#homeHighlightsTitle').textContent=`Jugadores destacados · Jornada ${round}`;
+  const best=(field)=>rows.slice().sort((a,b)=>b[field]-a[field]||b.realGoals-a.realGoals||a.name.localeCompare(b.name,'es'))[0];
+  const topG=best('goals'),topA=best('assists'),topM=best('mvps');
+  const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
+  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.innerHTML=n&&p?`${playerAvatarHtml(p.name,'home-stat-avatar')}<span>${escapeHtml(p.name)}</span>`:'<span class="home-stat-empty">—</span>';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
+}
 function renderHomeDashboard(){
   const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,3),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,3);
-  const top3=standingsData().slice(0,3),homeTable=$('#homeStandingsTop');
-  if(homeTable)homeTable.innerHTML=top3.map((r,i)=>`<button type="button" class="home-standing-row" data-team-profile="${r.key}"><span class="home-standing-pos">${i+1}</span><img src="${teams[r.key].logo}" alt=""><strong>${escapeHtml(r.name)}</strong><span class="home-standing-points">${r.pts} <small>PTS</small></span></button>`).join('');
+  const allStandings=standingsData(),homeTable=$('#homeStandingsTop');
+  if(homeTable)homeTable.innerHTML=allStandings.map((r,i)=>`<button type="button" class="home-standing-row" data-team-profile="${r.key}"><span class="home-standing-pos">${i+1}</span><img src="${teams[r.key].logo}" alt=""><strong>${escapeHtml(r.name)}</strong><span class="home-standing-points">${r.pts} <small>PTS</small></span></button>`).join('');
   $('#recentResults').innerHTML=finished.length?finished.map(f=>homeMatchHtml(f,true)).join(''):'<div class="empty-state">Todavía no se ha finalizado ningún partido.</div>';
   $('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
   bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
-  const topG=sortedBy('goals')[0],topA=sortedBy('assists')[0],topM=sortedBy('mvps')[0];
-  const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
-  topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.innerHTML=n&&p?`${playerAvatarHtml(p.name,'home-stat-avatar')}<span>${escapeHtml(p.name)}</span>`:'<span class="home-stat-empty">—</span>';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
+  renderHomeRoundHighlights();
   renderNextMatchCard();
 }
 function homeMatchHtml(f,finished){
