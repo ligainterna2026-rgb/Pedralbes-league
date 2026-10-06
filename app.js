@@ -1157,15 +1157,21 @@ async function renderAdmin(){
       displayName:p.display_name||((p.email||'').split('@')[0]),
       linkedPlayer:player?.name||null,
       linkedPlayerId:player?.id||null,
+      linkedTeamKey:player?.team_id||'',
+      photoUrl:player?.photo_url||'',
       roles:(roles||[]).filter(r=>r.user_id===p.id).map(r=>r.role)
     };
-  });
+  }).sort((a,b)=>String(a.linkedPlayer||a.displayName||a.email).localeCompare(String(b.linkedPlayer||b.displayName||b.email),'es',{sensitivity:'base'}));
 
   if(usersWrap){
     usersWrap.innerHTML=list.length?list.map(u=>{
       const self=u.email.toLowerCase()===LEAGUE_EMAIL;
-      return `<article class="admin-user-card" data-user-id="${escapeHtml(u.id)}">
-        <div class="admin-user-head"><div><strong>${escapeHtml(u.email)}</strong><span class="muted">${u.linkedPlayer?`Jugador: ${escapeHtml(u.linkedPlayer)}`:'Cuenta administrativa sin jugador'}</span></div><div class="role-row">${roleBadges(u)}</div></div>
+      const teamName=u.linkedTeamKey?(teams[u.linkedTeamKey]?.name||u.linkedTeamKey):'';
+      const searchText=[u.email,u.displayName,u.linkedPlayer,teamName,...(u.roles||[])].filter(Boolean).join(' ');
+      const initials=(u.linkedPlayer||u.displayName||u.email||'?').split(' ').map(x=>x[0]).filter(Boolean).slice(0,2).join('').toUpperCase();
+      const avatar=u.photoUrl?`<span class="admin-user-avatar"><img src="${escapeHtml(u.photoUrl)}" alt="Foto de ${escapeHtml(u.linkedPlayer||u.displayName||'usuario')}"></span>`:`<span class="admin-user-avatar">${escapeHtml(initials)}</span>`;
+      return `<article class="admin-user-card" data-user-id="${escapeHtml(u.id)}" data-user-search="${escapeHtml(searchText)}" data-user-team="${escapeHtml(u.linkedTeamKey||'none')}" data-user-roles="${escapeHtml((u.roles||[]).join(','))}">
+        <div class="admin-user-head"><div class="admin-user-identity">${avatar}<div><strong>${escapeHtml(u.linkedPlayer||u.displayName||u.email)}</strong><span class="muted">${escapeHtml(u.email)}</span><span class="muted">${u.linkedPlayer?`${escapeHtml(teamName)}`:'Cuenta administrativa sin jugador'}</span></div></div><div class="role-row">${roleBadges(u)}</div></div>
         <div class="admin-user-controls">
           <label>Corregir jugador<select data-user-player ${self&&!u.linkedPlayer?'disabled':''}>
             <option value="">Sin jugador</option>
@@ -1184,6 +1190,32 @@ async function renderAdmin(){
       </article>`;
     }).join(''):'<div class="empty-state">Todavía no hay usuarios registrados.</div>';
   }
+
+  const teamFilter=$('#adminUserTeamFilter'),roleFilter=$('#adminUserRoleFilter'),searchInput=$('#adminUserSearch'),countEl=$('#adminUserCount'),emptyFilter=$('#adminUsersEmptyFilter');
+  if(teamFilter){
+    const current=teamFilter.value;
+    teamFilter.innerHTML='<option value="">Todos los equipos</option>'+Object.entries(teams).map(([key,t])=>`<option value="${escapeHtml(key)}">${escapeHtml(t.name)}</option>`).join('')+'<option value="none">Sin jugador vinculado</option>';
+    teamFilter.value=current;
+  }
+  const normalizeAdminSearch=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const applyAdminUserFilters=()=>{
+    const q=normalizeAdminSearch(searchInput?.value),team=teamFilter?.value||'',role=roleFilter?.value||'';
+    let visible=0;
+    $$('#adminUsers .admin-user-card').forEach(card=>{
+      const haystack=normalizeAdminSearch(card.dataset.userSearch),teamOk=!team||card.dataset.userTeam===team;
+      const roleList=(card.dataset.userRoles||'').split(',').filter(Boolean);
+      const roleOk=!role||(role==='none'?roleList.length===0:roleList.includes(role));
+      const show=(!q||haystack.includes(q))&&teamOk&&roleOk;
+      card.hidden=!show;if(show)visible++;
+    });
+    if(countEl)countEl.textContent=`${visible} de ${list.length} usuario${list.length===1?'':'s'}`;
+    if(emptyFilter)emptyFilter.hidden=visible!==0;
+  };
+  searchInput?.addEventListener('input',applyAdminUserFilters);
+  teamFilter?.addEventListener('change',applyAdminUserFilters);
+  roleFilter?.addEventListener('change',applyAdminUserFilters);
+  $('#clearAdminUserFilters')?.addEventListener('click',()=>{if(searchInput)searchInput.value='';if(teamFilter)teamFilter.value='';if(roleFilter)roleFilter.value='';applyAdminUserFilters();searchInput?.focus()});
+  applyAdminUserFilters();
 
   $$('#adminUsers [data-save-user]').forEach(btn=>btn.addEventListener('click',async()=>{
     const card=btn.closest('[data-user-id]'),id=card.dataset.userId,u=list.find(x=>x.id===id);if(!u)return;

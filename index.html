@@ -402,8 +402,15 @@
         <div class="permission-card"><span class="role guest">VISITANTE</span><h3>Sin registro</h3><p>Puede ver toda la competición, estadísticas, streaming y grabaciones, pero no puede editar nada.</p></div>
       </div>
       <section class="panel admin-users-panel">
-        <div class="panel-head"><div><span class="eyebrow">CUENTAS</span><h2>Usuarios registrados</h2><p>La vinculación con el jugador se hace durante el registro. Aquí puedes corregirla si hay un error y asignar los roles de Árbitro o Administrador.</p></div></div>
+        <div class="panel-head"><div><span class="eyebrow">CUENTAS</span><h2>Usuarios registrados</h2><p>Busca por nombre, jugador o correo y filtra por equipo o rol para localizar cualquier cuenta al instante.</p></div></div>
+        <div class="admin-user-tools" aria-label="Buscar y filtrar usuarios">
+          <label class="admin-user-search"><span>Buscar usuario</span><input id="adminUserSearch" type="search" placeholder="Nombre, jugador o correo..." autocomplete="off"></label>
+          <label><span>Equipo</span><select id="adminUserTeamFilter"><option value="">Todos los equipos</option></select></label>
+          <label><span>Rol</span><select id="adminUserRoleFilter"><option value="">Todos los roles</option><option value="player">Jugador</option><option value="referee">Árbitro</option><option value="admin">Administrador</option><option value="none">Sin rol especial</option></select></label>
+          <div class="admin-user-filter-actions"><strong id="adminUserCount">0 usuarios</strong><button id="clearAdminUserFilters" class="ghost" type="button">Limpiar filtros</button></div>
+        </div>
         <div id="adminUsers" class="admin-users"></div>
+        <div id="adminUsersEmptyFilter" class="empty-state" hidden>No hay usuarios que coincidan con la búsqueda.</div>
       </section>
       <section class="panel admin-fixtures-panel">
         <div class="panel-head"><div><span class="eyebrow">CALENDARIO</span><h2>Editar jornadas y partidos</h2><p>Puedes mover un partido de jornada, cambiar local/visitante, añadir encuentros o eliminarlos. El equipo que descansa se calcula automáticamente según los equipos que juegan.</p></div><div class="fixture-editor-toolbar"><button id="addFixture" class="secondary" type="button">+ Añadir partido</button><button id="resetFixtures" class="ghost" type="button">Restaurar calendario</button></div></div>
