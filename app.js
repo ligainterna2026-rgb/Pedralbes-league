@@ -87,7 +87,7 @@ function currentUser(){return authStateUser}
 async function loadCurrentUserFromSupabase(authUser=null){
   try{
     const user=authUser || (await supabaseClient.auth.getUser()).data.user;
-    if(!user){authStateUser=null;authReady=true;refreshPermissionViews();return null}
+    if(!user){authStateUser=null;authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();return null}
     const [{data:profile},{data:roles},{data:player}] = await Promise.all([
       supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
       supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
@@ -103,6 +103,7 @@ async function loadCurrentUserFromSupabase(authUser=null){
     };
     authReady=true;
     refreshPermissionViews();
+    await hydrateMatchDataFromSupabase();
     return authStateUser;
   }catch(err){
     console.error('Error cargando sesión',err);
@@ -522,12 +523,145 @@ function populateMatchSelects(){
   $('#idealRound').innerHTML=rounds.map(r=>`<option value="${r}">Jornada ${r}</option>`).join('');
 }
 
-function openLiveMatch(matchId){if(!findFixture(matchId))return;stopTimer();live.matchId=matchId;live.half=1;live.remaining=1200;if($('#matchSelect'))$('#matchSelect').value=matchId;renderLive();navigate('directo')}
+function restoreLiveClockFromState(matchId){
+  const s=getStateFor(matchId);
+  live.half=Number(s.liveHalf||1);
+  live.remaining=Math.max(0,Math.min(1200,Number.isFinite(Number(s.clockSeconds))?Number(s.clockSeconds):1200));
+  live.running=false;
+}
+function openLiveMatch(matchId){if(!findFixture(matchId))return;stopTimer();live.matchId=matchId;restoreLiveClockFromState(matchId);if($('#matchSelect'))$('#matchSelect').value=matchId;renderLive();navigate('directo')}
 
 let live={matchId:'m1',half:1,remaining:1200,running:false,interval:null};
 function matchStateKey(){return `match:${live.matchId}`}
 function getMatchState(){return store.get(matchStateKey(),defaultMatchState())}
-function saveMatchState(s){store.set(matchStateKey(),s)}
+function saveMatchState(s){
+  s={...defaultMatchState(),...s,participants:Array.isArray(s?.participants)?s.participants:[]};
+  s.liveHalf=live.half;s.clockSeconds=live.remaining;s.clockRunning=!!live.running;
+  store.set(matchStateKey(),s);
+  queueMatchStateSync(live.matchId,s);
+}
+
+
+// v29 · Supabase como fuente compartida de los datos de partido.
+let remotePlayerByName=new Map(),remotePlayerById=new Map(),matchHydratePromise=null;
+const matchSyncChains=new Map();
+function matchStateHasData(s){return !!(s&&(s.finished||s.started||Number(s.homeScore)>0||Number(s.awayScore)>0||(s.events||[]).length||s.mvp||(s.participants||[]).length))}
+async function loadRemotePlayerIndex(force=false){
+  if(remotePlayerByName.size&&!force)return;
+  const {data,error}=await supabaseClient.from('players').select('id,name,team_id');
+  if(error)throw error;
+  remotePlayerByName=new Map((data||[]).map(p=>[p.name,p]));remotePlayerById=new Map((data||[]).map(p=>[p.id,p]));
+}
+function remoteClockSeconds(row){
+  let seconds=Number(row?.clock_seconds??1200);
+  if(row?.running&&row?.clock_started_at){const elapsed=Math.max(0,Math.floor((Date.now()-Date.parse(row.clock_started_at))/1000));seconds=Math.max(0,seconds-elapsed)}
+  return Math.max(0,Math.min(1200,seconds));
+}
+async function fetchRemoteMatchBundle(){
+  const [fixtureRes,liveRes,eventRes,participantRes]=await Promise.all([
+    supabaseClient.from('fixtures').select('id,status,home_score,away_score,mvp_player_id'),
+    supabaseClient.from('match_live_state').select('fixture_id,half,clock_seconds,running,clock_started_at,updated_at'),
+    supabaseClient.from('match_events').select('id,seq,fixture_id,team_id,scorer_player_id,assist_player_id,goal_value,half,minute,home_score_after,away_score_after').order('seq',{ascending:true}),
+    supabaseClient.from('match_participants').select('fixture_id,player_id')
+  ]);
+  if(fixtureRes.error)throw fixtureRes.error;if(liveRes.error)throw liveRes.error;if(eventRes.error)throw eventRes.error;
+  if(participantRes.error)console.warn('Participantes aún no disponibles en Supabase',participantRes.error);
+  return {fixtures:fixtureRes.data||[],live:liveRes.data||[],events:eventRes.data||[],participants:participantRes.error?[]:(participantRes.data||[])};
+}
+function remoteFixtureHasData(row,events,participants){return !!(row&&(row.status==='live'||row.status==='finished'||Number(row.home_score)>0||Number(row.away_score)>0||row.mvp_player_id||events.length||participants.length))}
+async function syncMatchStateToSupabase(matchId,state){
+  if(!currentUser()||!canManageMatch(matchId))return;
+  const f=findFixture(matchId);if(!f)return;await loadRemotePlayerIndex();
+  const events=state.events||[],hasActivity=state.started||events.length||Number(state.homeScore)>0||Number(state.awayScore)>0||state.mvp;
+  const status=state.finished?'finished':hasActivity?'live':'pending',mvpId=state.mvp?remotePlayerByName.get(state.mvp)?.id||null:null;
+  const {error:summaryError}=await supabaseClient.rpc('save_match_summary',{p_fixture_id:matchId,p_status:status,p_home_score:Number(state.homeScore)||0,p_away_score:Number(state.awayScore)||0,p_mvp_player_id:mvpId});
+  if(summaryError)throw summaryError;
+  const {error:deleteEventsError}=await supabaseClient.from('match_events').delete().eq('fixture_id',matchId);if(deleteEventsError)throw deleteEventsError;
+  if(events.length){
+    const rows=events.map(e=>{const scorer=remotePlayerByName.get(e.scorer),assist=e.assist?remotePlayerByName.get(e.assist):null,teamId=e.teamKey||f[e.side]||scorer?.team_id;return {fixture_id:matchId,team_id:teamId,scorer_player_id:scorer?.id,assist_player_id:assist?.id||null,goal_value:Number(e.competitionValue??e.value??1)===2?2:1,half:Number(e.half)||1,minute:Math.max(0,Math.min(20,Number(e.minute)||0)),home_score_after:Number(e.homeScoreAfter)||0,away_score_after:Number(e.awayScoreAfter)||0,created_by:currentUser().id}}).filter(r=>r.scorer_player_id&&r.team_id);
+    if(rows.length){const {error}=await supabaseClient.from('match_events').insert(rows);if(error)throw error}
+  }
+  if(isAdmin()){
+    const {error:delPart}=await supabaseClient.from('match_participants').delete().eq('fixture_id',matchId);if(delPart)throw delPart;
+    const manual=[...new Set(state.participants||[])].map(name=>remotePlayerByName.get(name)?.id).filter(Boolean);
+    if(manual.length){const {error}=await supabaseClient.from('match_participants').insert(manual.map(player_id=>({fixture_id:matchId,player_id,created_by:currentUser().id})));if(error)throw error}
+  }
+  const isCurrent=live.matchId===matchId,clockSeconds=isCurrent?live.remaining:Number(state.clockSeconds??1200),half=isCurrent?live.half:Number(state.liveHalf||1),running=isCurrent?!!live.running:!!state.clockRunning;
+  const {error:liveError}=await supabaseClient.from('match_live_state').upsert({fixture_id:matchId,half,clock_seconds:Math.max(0,Math.min(1200,clockSeconds)),running,clock_started_at:running?new Date().toISOString():null,updated_by:currentUser().id,updated_at:new Date().toISOString()},{onConflict:'fixture_id'});if(liveError)throw liveError;
+}
+async function forceSyncAllLocalMatches(){
+  if(!isAdmin())throw new Error('Solo un administrador puede sincronizar los datos locales.');
+  await loadRemotePlayerIndex(true);
+  let synced=0;
+  for(const f of fixtures){
+    const local=store.get(`match:${f.id}`,defaultMatchState());
+    if(!matchStateHasData(local))continue;
+    const state={...defaultMatchState(),...local,events:Array.isArray(local.events)?local.events:[],participants:Array.isArray(local.participants)?local.participants:[]};
+    recalculateMatchStateFromEvents(state);
+    const mvpId=state.mvp?remotePlayerByName.get(state.mvp)?.id||null:null;
+    const hasActivity=state.started||state.events.length||Number(state.homeScore)>0||Number(state.awayScore)>0||state.mvp;
+    const status=state.finished?'finished':hasActivity?'live':'pending';
+    const {error:fixtureError}=await supabaseClient.from('fixtures').update({status,home_score:Number(state.homeScore)||0,away_score:Number(state.awayScore)||0,mvp_player_id:mvpId,updated_at:new Date().toISOString()}).eq('id',f.id);
+    if(fixtureError)throw new Error(`Partido ${f.id}: ${fixtureError.message}`);
+
+    const {error:deleteEventsError}=await supabaseClient.from('match_events').delete().eq('fixture_id',f.id);
+    if(deleteEventsError)throw new Error(`Partido ${f.id}: ${deleteEventsError.message}`);
+    if(state.events.length){
+      const rows=state.events.map(e=>{
+        const scorer=remotePlayerByName.get(e.scorer),assist=e.assist?remotePlayerByName.get(e.assist):null;
+        const teamId=e.teamKey||f[e.side]||scorer?.team_id;
+        return {fixture_id:f.id,team_id:teamId,scorer_player_id:scorer?.id,assist_player_id:assist?.id||null,goal_value:Number(e.competitionValue??e.value??1)===2?2:1,half:Number(e.half)||1,minute:Math.max(0,Math.min(20,Number(e.minute)||0)),home_score_after:Number(e.homeScoreAfter)||0,away_score_after:Number(e.awayScoreAfter)||0,created_by:currentUser().id};
+      }).filter(r=>r.scorer_player_id&&r.team_id);
+      if(rows.length){const {error}=await supabaseClient.from('match_events').insert(rows);if(error)throw new Error(`Partido ${f.id}: ${error.message}`)}
+    }
+
+    const {error:delPart}=await supabaseClient.from('match_participants').delete().eq('fixture_id',f.id);
+    if(delPart)throw new Error(`Partido ${f.id}: ${delPart.message}`);
+    const ids=[...new Set(state.participants||[])].map(name=>remotePlayerByName.get(name)?.id).filter(Boolean);
+    if(ids.length){const {error}=await supabaseClient.from('match_participants').insert(ids.map(player_id=>({fixture_id:f.id,player_id,created_by:currentUser().id})));if(error)throw new Error(`Partido ${f.id}: ${error.message}`)}
+
+    const clockSeconds=Math.max(0,Math.min(1200,Number(state.clockSeconds??1200))),half=Math.max(1,Math.min(2,Number(state.liveHalf||1))),running=!!state.clockRunning;
+    const {error:liveError}=await supabaseClient.from('match_live_state').upsert({fixture_id:f.id,half,clock_seconds:clockSeconds,running,clock_started_at:running?new Date().toISOString():null,updated_by:currentUser().id,updated_at:new Date().toISOString()},{onConflict:'fixture_id'});
+    if(liveError)throw new Error(`Partido ${f.id}: ${liveError.message}`);
+    synced++;
+  }
+  await hydrateMatchDataFromSupabase();
+  return synced;
+}
+
+function queueMatchStateSync(matchId,state){
+  if(!currentUser()||!canManageMatch(matchId))return;
+  const snapshot=JSON.parse(JSON.stringify(state)),previous=matchSyncChains.get(matchId)||Promise.resolve();
+  const next=previous.catch(()=>{}).then(()=>syncMatchStateToSupabase(matchId,snapshot)).catch(err=>console.error('No se pudo sincronizar el partido',err));
+  matchSyncChains.set(matchId,next);next.finally(()=>{if(matchSyncChains.get(matchId)===next)matchSyncChains.delete(matchId)});
+}
+async function hydrateMatchDataFromSupabase(){
+  if(matchHydratePromise)return matchHydratePromise;
+  matchHydratePromise=(async()=>{
+    try{
+      await loadRemotePlayerIndex();let bundle=await fetchRemoteMatchBundle(),migrated=false;
+      const byFixtureEvents=id=>bundle.events.filter(e=>e.fixture_id===id),byFixtureParticipants=id=>bundle.participants.filter(p=>p.fixture_id===id);
+      if(isAdmin()){
+        for(const f of fixtures){
+          const remote=bundle.fixtures.find(x=>x.id===f.id),re=byFixtureEvents(f.id),rp=byFixtureParticipants(f.id),local=store.get(`match:${f.id}`,defaultMatchState());
+          if(matchStateHasData(local)&&!remoteFixtureHasData(remote,re,rp)){await syncMatchStateToSupabase(f.id,local);migrated=true}
+        }
+        if(migrated)bundle=await fetchRemoteMatchBundle();
+      }
+      for(const f of fixtures){
+        const row=bundle.fixtures.find(x=>x.id===f.id);if(!row)continue;
+        const eventRows=bundle.events.filter(e=>e.fixture_id===f.id),partRows=bundle.participants.filter(p=>p.fixture_id===f.id),liveRow=bundle.live.find(x=>x.fixture_id===f.id),local=store.get(`match:${f.id}`,defaultMatchState());
+        if(!remoteFixtureHasData(row,eventRows,partRows)&&matchStateHasData(local))continue;
+        const state={...defaultMatchState(),homeScore:Number(row.home_score)||0,awayScore:Number(row.away_score)||0,finished:row.status==='finished',started:row.status==='live',mvp:row.mvp_player_id?remotePlayerById.get(row.mvp_player_id)?.name||null:null,participants:partRows.map(p=>remotePlayerById.get(p.player_id)?.name).filter(Boolean),liveHalf:Number(liveRow?.half||1),clockSeconds:remoteClockSeconds(liveRow),clockRunning:!!liveRow?.running};
+        state.events=eventRows.map(e=>{const scorer=remotePlayerById.get(e.scorer_player_id),assist=e.assist_player_id?remotePlayerById.get(e.assist_player_id):null,side=e.team_id===f.home?'home':'away';return {id:e.id,team:teams[e.team_id]?.name||e.team_id,teamKey:e.team_id,side,scorer:scorer?.name||e.scorer_player_id,assist:assist?.name||'',value:Number(e.goal_value)||1,realValue:1,competitionValue:Number(e.goal_value)||1,doubleGoal:Number(e.goal_value)===2,half:Number(e.half)||1,minute:Number(e.minute)||0,homeScoreAfter:Number(e.home_score_after)||0,awayScoreAfter:Number(e.away_score_after)||0,scoreAfter:`${Number(e.home_score_after)||0}-${Number(e.away_score_after)||0}`}});
+        store.set(`match:${f.id}`,state);
+      }
+      if(!live.running&&findFixture(live.matchId))restoreLiveClockFromState(live.matchId);
+      refreshDataViews();renderLive();
+    }catch(err){console.error('No se pudieron cargar los partidos compartidos desde Supabase',err)}
+  })().finally(()=>{matchHydratePromise=null});
+  return matchHydratePromise;
+}
 function allMatchPlayers(f){return [...playersOf(f.home),...playersOf(f.away)]}
 function timeText(sec){const m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
 function elapsedMinute(){return Math.min(20,Math.floor((1200-live.remaining)/60)+1)}
@@ -608,13 +742,13 @@ function renderLive(){
 }
 function stopTimer(){live.running=false;if(live.interval)clearInterval(live.interval);live.interval=null}
 function requireMatchEdit(){if(!canManageMatch(live.matchId)){alert('Este partido está en modo solo lectura. Solo el administrador o el árbitro asignado puede editarlo.');return false}return true}
-$('#startTimer').addEventListener('click',()=>{if(!requireMatchEdit()||live.running||live.remaining<=0)return;const s=getMatchState();s.started=true;saveMatchState(s);live.running=true;renderStandings();live.interval=setInterval(()=>{live.remaining--;renderLive();if(live.remaining<=0)stopTimer()},1000)});
-$('#pauseTimer').addEventListener('click',()=>{if(requireMatchEdit())stopTimer()});
-$('#resetTimer').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.remaining=1200;renderLive()});
-$('#half1Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.half=1;live.remaining=1200;renderLive()});
-$('#half2Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.half=2;live.remaining=1200;renderLive()});
-$('#applyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#jumpMinute').value||0)),sec=Math.floor(Number($('#jumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;renderLive()});
-$('#matchSelect').addEventListener('change',e=>{stopTimer();live.matchId=e.target.value;live.half=1;live.remaining=1200;renderLive()});
+$('#startTimer').addEventListener('click',()=>{if(!requireMatchEdit()||live.running||live.remaining<=0)return;const s=getMatchState();s.started=true;live.running=true;saveMatchState(s);renderStandings();live.interval=setInterval(()=>{live.remaining--;renderLive();if(live.remaining<=0){stopTimer();const current=getMatchState();saveMatchState(current)}},1000)});
+$('#pauseTimer').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();const s=getMatchState();saveMatchState(s);renderLive()});
+$('#resetTimer').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.remaining=1200;const s=getMatchState();saveMatchState(s);renderLive()});
+$('#half1Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.half=1;live.remaining=1200;const s=getMatchState();saveMatchState(s);renderLive()});
+$('#half2Btn').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();live.half=2;live.remaining=1200;const s=getMatchState();saveMatchState(s);renderLive()});
+$('#applyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#jumpMinute').value||0)),sec=Math.floor(Number($('#jumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;const s=getMatchState();saveMatchState(s);renderLive()});
+$('#matchSelect').addEventListener('change',e=>{stopTimer();live.matchId=e.target.value;restoreLiveClockFromState(live.matchId);renderLive()});
 $('#viewerStreamBtn').addEventListener('click',()=>{if($('#streamMatchSelect'))$('#streamMatchSelect').value=live.matchId;renderStreaming();navigate('streaming')});
 let goalSide='home',mobileGoalScorer='';
 function renderMobileGoalScorers(teamKey){
@@ -654,7 +788,7 @@ $('#editGoalHalf')?.addEventListener('change',updateEditGoalNotice);$('#editGoal
 $('#editGoalForm')?.addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();const s=getMatchState();if(s.finished&&!isAdmin())return;if(!requireMatchEdit())return;const event=(s.events||[]).find(x=>String(x.id)===String($('#editGoalId').value));if(!event)return;const side=$('#editGoalSide').value,f=findFixture(live.matchId),teamKey=f[side],scorer=$('#editScorerSelect').value,assist=$('#editAssistSelect').value,half=Math.max(1,Math.min(2,Number($('#editGoalHalf').value))),minute=Math.max(1,Math.min(20,Math.floor(Number($('#editGoalMinute').value||1))));if(assist&&assist===scorer){alert('El goleador y el asistente no pueden ser la misma persona.');return}Object.assign(event,{side,teamKey,team:teams[teamKey].name,scorer,assist,half,minute});recalculateMatchStateFromEvents(s);saveMatchState(s);$('#editGoalDialog').close();renderLive();refreshDataViews()});
 $('#deleteGoal')?.addEventListener('click',()=>{const s=getMatchState();if(s.finished&&!isAdmin())return;if(!requireMatchEdit())return;const id=$('#editGoalId').value;if(!confirm('¿Eliminar este gol del acta?'))return;s.events=(s.events||[]).filter(x=>String(x.id)!==String(id));recalculateMatchStateFromEvents(s);saveMatchState(s);$('#editGoalDialog').close();renderLive();refreshDataViews()});
 
-$('#finishMatch').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState();if(!confirm('¿Finalizar el partido? El acta quedará marcada como finalizada.'))return;s.finished=true;s.started=false;saveMatchState(s);stopTimer();renderLive();refreshDataViews()});
+$('#finishMatch').addEventListener('click',()=>{if(!requireMatchEdit())return;const s=getMatchState();if(!confirm('¿Finalizar el partido? El acta quedará marcada como finalizada.'))return;stopTimer();s.finished=true;s.started=false;saveMatchState(s);renderLive();refreshDataViews()});
 $('#saveMvp').addEventListener('click',()=>{if(!requireMatchEdit())return;const v=$('#mvpSelect').value;if(!v)return;const s=getMatchState();s.mvp=v;saveMatchState(s);renderLive();refreshDataViews()});
 
 function openMobileMvp(){
@@ -670,7 +804,7 @@ $('#mobileUndoGoal')?.addEventListener('click',()=>$('#undoGoal').click());
 $('#mobileFinishMatch')?.addEventListener('click',()=>$('#finishMatch').click());
 $('#mobileStreamBtn')?.addEventListener('click',()=>$('#viewerStreamBtn').click());
 $('#mobileActaBtn')?.addEventListener('click',()=>{const view=$('#view-directo'),open=!view.classList.contains('mobile-acta-open');view.classList.toggle('mobile-acta-open',open);$('#mobileActaBtn').textContent=open?'✕ Cerrar acta':'📋 Ver acta'});
-$('#mobileApplyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#mobileJumpMinute').value||0)),sec=Math.floor(Number($('#mobileJumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;renderLive()});
+$('#mobileApplyMatchTime')?.addEventListener('click',()=>{if(!isAdmin())return;stopTimer();let min=Math.floor(Number($('#mobileJumpMinute').value||0)),sec=Math.floor(Number($('#mobileJumpSecond').value||0));min=Math.max(0,Math.min(20,min));sec=Math.max(0,Math.min(59,sec));if(min===20)sec=0;const elapsed=Math.min(1200,min*60+sec);live.remaining=1200-elapsed;const s=getMatchState();saveMatchState(s);renderLive()});
 $('#mobileToastUndo')?.addEventListener('click',()=>{clearTimeout(mobileToastTimer);$('#mobileLiveToast').hidden=true;$('#undoGoal').click()});
 window.addEventListener('resize',()=>{if(document.body.dataset.view==='directo')renderLive()});
 
@@ -890,6 +1024,16 @@ function renderFixtureEditor(){
 async function renderAdmin(){
   if(!isAdmin())return;
   renderFixtureEditor();
+  const fixtureWrap=$('#fixtureEditor');
+  if(fixtureWrap){
+    fixtureWrap.insertAdjacentHTML('afterbegin',`<div class="notice" style="margin-bottom:14px"><strong>Sincronización de partidos</strong><br><span class="muted">Si este ordenador contiene resultados antiguos, súbelos a Supabase para verlos también en el móvil.</span><div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button id="forceSyncMatches" class="primary" type="button">Sincronizar datos de este navegador</button><span id="forceSyncMatchesStatus" class="muted"></span></div></div>`);
+    $('#forceSyncMatches')?.addEventListener('click',async()=>{
+      const btn=$('#forceSyncMatches'),status=$('#forceSyncMatchesStatus');btn.disabled=true;status.textContent='Sincronizando...';
+      try{const count=await forceSyncAllLocalMatches();status.textContent=`✓ ${count} partido${count===1?'':'s'} sincronizado${count===1?'':'s'}. Ya puedes abrir el móvil.`;refreshDataViews();renderLive()}
+      catch(err){console.error(err);status.textContent=`No se pudo sincronizar: ${err.message||err}`}
+      finally{btn.disabled=false}
+    });
+  }
   const usersWrap=$('#adminUsers');
   if(usersWrap)usersWrap.innerHTML='<div class="empty-state">Cargando usuarios de Supabase...</div>';
 
