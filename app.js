@@ -945,8 +945,11 @@ function availabilityVoteCounts(f,data,optId){
 }
 function renderAvailability(){
   const matchId=$('#availabilityMatch').value,f=findFixture(matchId),data=availabilityData(matchId);if(!f)return;
-  const adminEditor=$('#availabilityAdminEditor');adminEditor.hidden=!isAdmin();
-  if(isAdmin()){ $('#availabilityOptionEditors').innerHTML=[0,1,2].map(i=>availabilityEditorHtml(data.options[i]||{},i)).join(''); $$('#availabilityOptionEditors select, #availabilityOptionEditors input').forEach(el=>el.addEventListener('change',updateAvailabilityEditorPreviews)); updateAvailabilityEditorPreviews(); }
+  const adminEditor=$('#availabilityAdminEditor');
+  const adminMode=isAdmin();
+  adminEditor.hidden=!adminMode;
+  adminEditor.style.display=adminMode?'block':'none';
+  if(adminMode){ $('#availabilityOptionEditors').innerHTML=[0,1,2].map(i=>availabilityEditorHtml(data.options[i]||{},i)).join(''); $$('#availabilityOptionEditors select, #availabilityOptionEditors input').forEach(el=>el.addEventListener('change',updateAvailabilityEditorPreviews)); updateAvailabilityEditorPreviews(); }
 
   if(!data.options.length){
     $('#availabilityOptions').innerHTML='<div class="empty-state">El administrador todavía no ha publicado ninguna fecha para votar.</div>';

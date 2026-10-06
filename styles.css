@@ -821,3 +821,37 @@ img.team-profile-target:hover {
 .stat-player>span:last-child{font-weight:900;font-size:1.05rem;white-space:normal}
 .home-stat-empty{font-size:1.35rem}
 @media(max-width:700px){.stat-player .home-stat-avatar{width:42px;height:42px;flex-basis:42px}.stats-cards>div{padding:14px}}
+
+
+/* v32.11 · editor de disponibilidad Admin visible y usable en móvil */
+#availabilityAdminEditor:not([hidden]){display:block!important}
+@media(max-width:760px){
+  #view-disponibilidad #availabilityAdminEditor{
+    width:100%!important;
+    max-width:100%!important;
+    margin:4px 0 8px!important;
+    padding:14px!important;
+    overflow:visible!important;
+  }
+  #view-disponibilidad #availabilityAdminEditor .panel-head{display:block!important;margin-bottom:12px!important}
+  #view-disponibilidad #availabilityAdminEditor .panel-head h2{font-size:1.3rem!important;margin:3px 0 5px!important}
+  #view-disponibilidad #availabilityAdminEditor .panel-head p{font-size:.86rem!important;line-height:1.4!important}
+  #view-disponibilidad #availabilityOptionEditors{display:grid!important;grid-template-columns:1fr!important;gap:12px!important;width:100%!important}
+  #view-disponibilidad .availability-editor-card{display:block!important;width:100%!important;min-width:0!important;padding:13px!important}
+  #view-disponibilidad .availability-editor-title{margin-bottom:10px!important}
+  #view-disponibilidad .weekday-time-grid{display:grid!important;grid-template-columns:1fr!important;gap:10px!important;width:100%!important}
+  #view-disponibilidad .weekday-time-grid label{display:grid!important;gap:6px!important;width:100%!important;min-width:0!important}
+  #view-disponibilidad .weekday-time-grid input[type="date"],
+  #view-disponibilidad .weekday-time-grid select{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    min-height:48px!important;
+    font-size:16px!important;
+    box-sizing:border-box!important;
+  }
+  #view-disponibilidad .auto-date-note{margin-top:10px!important}
+  #view-disponibilidad .availability-admin-actions{display:grid!important;grid-template-columns:1fr!important;gap:9px!important;margin-top:12px!important}
+  #view-disponibilidad .availability-admin-actions button{display:block!important;width:100%!important;min-height:48px!important}
+}
