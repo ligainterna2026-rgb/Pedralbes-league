@@ -880,3 +880,28 @@ img.team-profile-target:hover {
 
 /* v32.15 · clasificación completa y destacados por jornada */
 .home-highlight-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}.compact-select{min-height:38px;padding:8px 34px 8px 12px;border-radius:12px}.home-standings-top{gap:8px}.home-standing-row{min-height:48px}@media(max-width:700px){.home-highlight-head{align-items:flex-start!important;gap:12px}.home-highlight-actions{width:100%;justify-content:space-between}.compact-select{flex:1;max-width:180px}}
+
+/* v32.16 · Penaltis shootout */
+.shootout-panel{margin-top:18px}
+.shootout-panel .panel-head{align-items:center}
+.shootout-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;margin:12px 0;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04)}
+.shootout-summary strong{font-size:1.75rem;line-height:1}
+.shootout-summary span{font-weight:800;text-align:right}
+.shootout-list{display:grid;gap:8px}
+.shootout-event{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px 13px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.035)}
+.shootout-event.scored{box-shadow:inset 3px 0 0 rgba(70,190,120,.8)}
+.shootout-event.missed{box-shadow:inset 3px 0 0 rgba(220,90,90,.8)}
+.shootout-event>strong{text-align:center}
+.shootout-dialog-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.shootout-dialog-actions .ghost{grid-column:1/-1}
+.mobile-shootout-summary{margin:8px 0 12px;padding:10px 12px;border-radius:12px;text-align:center;font-weight:900;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+.team-match-row b small{display:block;font-size:.68rem;font-weight:700;opacity:.75;margin-top:2px;white-space:normal}
+@media(max-width:760px){
+  .shootout-panel .panel-head{display:grid;grid-template-columns:1fr;gap:10px}
+  .shootout-panel .panel-head>button{width:100%}
+  .shootout-summary{display:grid;grid-template-columns:1fr;text-align:center}
+  .shootout-summary span{text-align:center}
+  .shootout-event{grid-template-columns:1fr auto;gap:6px 10px}
+  .shootout-event>span{grid-column:1/-1;font-size:.78rem;opacity:.8}
+  .shootout-event>strong{text-align:left}
+}

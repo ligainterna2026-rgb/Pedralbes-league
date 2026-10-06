@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-15" />
+  <link rel="stylesheet" href="styles.css?v=32-16" />
 </head>
 <body>
   <header class="topbar">
@@ -111,7 +111,7 @@
       <section id="classificationGroupPanel" class="panel table-panel classification-panel">
         <div class="table-scroll">
           <table class="standings-table">
-            <thead><tr><th>POS</th><th class="team-col">EQUIPO</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th><th>RACHA</th><th>EN DIRECTO</th></tr></thead>
+            <thead><tr><th>POS</th><th class="team-col">EQUIPO</th><th>PJ</th><th>PG</th><th>PP</th><th>GF</th><th>GC</th><th>DG</th><th>PTS</th><th>RACHA</th><th>EN DIRECTO</th></tr></thead>
             <tbody id="standingsBody"></tbody>
           </table>
         </div>
@@ -227,6 +227,7 @@
             <button id="mobileAwayGoal" class="mobile-goal-button" type="button">⚽ GOL</button>
           </div>
         </div>
+        <div id="mobileShootoutSummary" class="mobile-shootout-summary" hidden></div>
         <div class="mobile-viewer-actions">
           <button id="mobileQuickActaBtn" class="ghost" type="button">📋 Ver acta</button>
           <button id="mobileQuickStreamBtn" class="ghost" type="button">▶ Streaming</button>
@@ -285,6 +286,11 @@
           <div id="liveEventActions" class="event-actions"><button id="undoGoal" class="ghost">Deshacer último gol</button><button id="finishMatch" class="secondary">Finalizar partido</button></div>
         </section>
       </div>
+      <section id="shootoutPanel" class="panel shootout-panel" hidden>
+        <div class="panel-head"><div><span class="eyebrow">DESEMPATE</span><h2>🥅 Penaltis shootout</h2><p>3 lanzamientos por equipo. Si siguen empatados, muerte súbita.</p></div><button id="addShootoutAttempt" class="primary" type="button">🥅 Añadir lanzamiento</button></div>
+        <div id="shootoutSummary" class="shootout-summary"></div>
+        <div id="shootoutList" class="shootout-list"></div>
+      </section>
       <div class="two-col">
         <section class="panel"><h2>Eventos</h2><div id="eventsList" class="events-list"></div></section>
         <section id="liveMvpPanel" class="panel"><h2>⭐ MVP del partido</h2><p class="muted">Lo elige el árbitro.</p><select id="mvpSelect"></select><button id="saveMvp" class="primary full">⭐ Guardar MVP</button><div id="mvpSaved" class="saved-msg"></div></section>
@@ -460,6 +466,21 @@
     </section>
   </main>
 
+  <dialog id="shootoutAttemptDialog" class="goal-dialog">
+    <form id="shootoutAttemptForm" method="dialog">
+      <input id="shootoutSide" type="hidden" value="home">
+      <h2 id="shootoutAttemptTitle">Shootout</h2>
+      <p class="muted">Selecciona quién lanza y registra si marca o falla.</p>
+      <label for="shootoutPlayer">Jugador</label>
+      <select id="shootoutPlayer" required></select>
+      <div class="dialog-actions shootout-dialog-actions">
+        <button class="secondary" type="submit" value="miss">❌ Fallado</button>
+        <button class="primary" type="submit" value="goal">✅ Gol</button>
+        <button class="ghost" type="submit" value="cancel">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="goalDialog">
     <form method="dialog" id="goalForm">
       <div class="dialog-head"><div><span class="eyebrow">NUEVO EVENTO</span><h2 id="goalTitle">Registrar gol</h2></div><button value="cancel" class="icon-btn" aria-label="Cerrar">✕</button></div>
@@ -503,6 +524,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-15"></script>
+  <script src="app.js?v=32-16"></script>
 </body>
 </html>
