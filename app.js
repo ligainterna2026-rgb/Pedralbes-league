@@ -5,6 +5,14 @@ const supabaseClient = window.supabase.createClient(
 
 let authStateUser = null;
 let authReady = false;
+let authLoadPromise = null;
+function withTimeout(promise, ms=10000, label='La operación'){
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} está tardando demasiado. Comprueba la conexión y vuelve a intentarlo.`)),ms)})
+  ]).finally(()=>clearTimeout(timer));
+}
 
 const LEAGUE_EMAIL = 'ligainterna2026@gmail.com';
 
@@ -86,35 +94,49 @@ function accounts(){seedAccounts();return store.get('league:accounts',[])}
 function saveAccounts(list){store.set('league:accounts',list)}
 function currentUser(){return authStateUser}
 async function loadCurrentUserFromSupabase(authUser=null){
-  try{
-    const user=authUser || (await supabaseClient.auth.getUser()).data.user;
-    if(!user){authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();await hydrateMatchDataFromSupabase();restoreLastViewAfterAuth();return null}
-    const [{data:profile},{data:roles},{data:player}] = await Promise.all([
-      supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
-      supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
-      supabaseClient.from('players').select('id,name,team_id,captain,photo_url').eq('user_id',user.id).maybeSingle()
-    ]);
-    authStateUser={
-      id:user.id,
-      email:user.email||'',
-      displayName:profile?.display_name || user.user_metadata?.display_name || (user.email||'').split('@')[0],
-      linkedPlayer:player?.name || null,
-      linkedPlayerId:player?.id || null,
-      linkedPlayerPhoto:player?.photo_url || null,
-      roles:(roles||[]).map(r=>r.role)
-    };
-    authReady=true;
-    await hydrateRefereePermissions();
-    refreshPermissionViews();
-    await hydrateMatchDataFromSupabase();
-    await migrateLinkedLocalPhoto();
-    if(document.body.dataset.view==='cuenta')renderAccountPanel();
-    restoreLastViewAfterAuth();
-    return authStateUser;
-  }catch(err){
-    console.error('Error cargando sesión',err);
-    authStateUser=null;authReady=true;refreshPermissionViews();restoreLastViewAfterAuth();return null;
-  }
+  if(authLoadPromise)return authLoadPromise;
+  authLoadPromise=(async()=>{
+    try{
+      const user=authUser || (await withTimeout(supabaseClient.auth.getUser(),8000,'La sesión')).data.user;
+      if(!user){
+        authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();
+        try{await withTimeout(hydrateMatchDataFromSupabase(),7000,'La sincronización de partidos')}catch(err){console.warn(err)}
+        restoreLastViewAfterAuth();return null;
+      }
+      const [profileRes,rolesRes,playerRes] = await withTimeout(Promise.all([
+        supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
+        supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
+        supabaseClient.from('players').select('id,name,team_id,captain,photo_url').eq('user_id',user.id).maybeSingle()
+      ]),8000,'La carga de la cuenta');
+      const profile=profileRes?.data,roles=rolesRes?.data,player=playerRes?.data;
+      authStateUser={
+        id:user.id,
+        email:user.email||'',
+        displayName:profile?.display_name || user.user_metadata?.display_name || (user.email||'').split('@')[0],
+        linkedPlayer:player?.name || null,
+        linkedPlayerId:player?.id || null,
+        linkedPlayerPhoto:player?.photo_url || null,
+        roles:(roles||[]).map(r=>r.role)
+      };
+      authReady=true;
+      try{await withTimeout(hydrateRefereePermissions(),5000,'Los permisos de árbitro')}catch(err){console.warn(err)}
+      refreshPermissionViews();
+      try{await withTimeout(hydrateMatchDataFromSupabase(),7000,'La sincronización de partidos')}catch(err){console.warn(err)}
+      try{await withTimeout(migrateLinkedLocalPhoto(),5000,'La sincronización de la foto')}catch(err){console.warn(err)}
+      if(document.body.dataset.view==='cuenta')renderAccountPanel();
+      restoreLastViewAfterAuth();
+      return authStateUser;
+    }catch(err){
+      console.error('Error cargando sesión',err);
+      authReady=true;
+      refreshPermissionViews();
+      restoreLastViewAfterAuth();
+      throw err;
+    }finally{
+      authLoadPromise=null;
+    }
+  })();
+  return authLoadPromise;
 }
 async function setSession(email){
   if(!email){await supabaseClient.auth.signOut();authStateUser=null;refreshPermissionViews();return}
@@ -275,13 +297,23 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-open-acces
 $('#loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const email=$('#loginEmail').value.trim().toLowerCase(), password=$('#loginPassword').value;
-  const msg=$('#loginMsg');
+  const msg=$('#loginMsg'), submit=e.currentTarget.querySelector('button[type="submit"]');
+  if(submit)submit.disabled=true;
   msg.textContent='Entrando...';
-  const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
-  if(error){msg.textContent='No se ha podido iniciar sesión. Revisa el correo y la contraseña.';return}
-  await loadCurrentUserFromSupabase(data.user);
-  msg.textContent='Sesión iniciada.';
-  navigate('cuenta');
+  try{
+    const {data,error}=await withTimeout(supabaseClient.auth.signInWithPassword({email,password}),10000,'El inicio de sesión');
+    if(error){msg.textContent='No se ha podido iniciar sesión. Revisa el correo y la contraseña.';return}
+    await loadCurrentUserFromSupabase(data.user);
+    msg.textContent='Sesión iniciada.';
+    navigate('cuenta');
+  }catch(err){
+    console.error('Error de acceso',err);
+    msg.textContent=err?.message?.includes('tardando demasiado')
+      ?'La conexión está tardando demasiado. Pulsa de nuevo en Entrar.'
+      :'No se pudo completar el inicio de sesión. Inténtalo de nuevo.';
+  }finally{
+    if(submit)submit.disabled=false;
+  }
 });
 $('#registerForm').addEventListener('submit',async e=>{
   e.preventDefault();
@@ -1426,9 +1458,11 @@ $$('[data-toggle-password]').forEach(btn=>btn.addEventListener('click',()=>{
 }));
 
 supabaseClient.auth.onAuthStateChange((_event,session)=>{
-  loadCurrentUserFromSupabase(session?.user||null);
+  const next=session?.user||null;
+  if(authReady && next?.id && authStateUser?.id===next.id)return;
+  loadCurrentUserFromSupabase(next).catch(err=>console.warn('No se pudo refrescar la sesión',err));
 });
-loadCurrentUserFromSupabase();
+loadCurrentUserFromSupabase().catch(err=>console.warn('No se pudo cargar la sesión inicial',err));
 
 // v6 · configuración local de recordatorios (el envío real se conectará al backend al publicar)
 function reminderSettings(){return store.get('league:reminders',{availabilityEnabled:true,availabilityCadence:'24',matchEnabled:true,match24:true,match2:true})}
