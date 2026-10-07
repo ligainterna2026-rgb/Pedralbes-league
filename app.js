@@ -1,6 +1,14 @@
 const supabaseClient = window.supabase.createClient(
   window.LIGA_SUPABASE.url,
-  window.LIGA_SUPABASE.anonKey
+  window.LIGA_SUPABASE.anonKey,
+  {
+    auth:{
+      persistSession:true,
+      autoRefreshToken:true,
+      detectSessionInUrl:true,
+      storage:window.localStorage
+    }
+  }
 );
 
 let authStateUser = null;
@@ -97,7 +105,11 @@ async function loadCurrentUserFromSupabase(authUser=null){
   if(authLoadPromise)return authLoadPromise;
   authLoadPromise=(async()=>{
     try{
-      const user=authUser || (await withTimeout(supabaseClient.auth.getUser(),8000,'La sesión')).data.user;
+      let user=authUser;
+      if(!user){
+        const sessionResult=await withTimeout(supabaseClient.auth.getSession(),5000,'La recuperación de la sesión');
+        user=sessionResult?.data?.session?.user||null;
+      }
       if(!user){
         authStateUser=null;remoteRefereeMatchIds=new Set();authReady=true;refreshPermissionViews();
         try{await withTimeout(hydrateMatchDataFromSupabase(),7000,'La sincronización de partidos')}catch(err){console.warn(err)}
@@ -654,6 +666,36 @@ function teamMatchHtml(f,key,finished){
   const action=finished?`<button class="ghost compact-btn" type="button" data-team-live="${f.id}">Ver acta</button>`:'';
   return `<article class="team-match-row"><img src="${teams[opponent].logo}" alt="" data-team-profile="${opponent}" class="team-profile-target"><div><strong>${teamProfileInline(opponent)}</strong><small>Jornada ${f.round} · ${finished?'Finalizado':'Fecha por decidir'}</small></div><b>${score}</b>${action}</article>`
 }
+
+function homeRoundPlayerStats(round){
+  const stats={};
+  allPlayers.forEach(p=>{
+    stats[p.name]={
+      name:p.name,
+      team:p.team,
+      key:p.key,
+      goals:0,
+      realGoals:0,
+      assists:0,
+      mvps:0
+    };
+  });
+  fixtures
+    .filter(f=>Number(f.round)===Number(round))
+    .forEach(f=>{
+      const state=getStateFor(f.id);
+      (state.events||[]).forEach(e=>{
+        if(e.scorer&&stats[e.scorer]){
+          stats[e.scorer].goals+=Number(e.competitionValue??e.value??1);
+          stats[e.scorer].realGoals+=Number(e.realValue??1);
+        }
+        if(e.assist&&stats[e.assist])stats[e.assist].assists+=1;
+      });
+      if(state.mvp&&stats[state.mvp])stats[state.mvp].mvps+=1;
+    });
+  return Object.values(stats);
+}
+
 function defaultHomeHighlightsRound(){
   const rounds=roundNumbers();
   const withData=rounds.filter(r=>fixtures.some(f=>Number(f.round)===Number(r)&&(()=>{const s=getStateFor(f.id);return !!(s.finished||s.events?.length||s.mvp)})()));
@@ -674,12 +716,13 @@ function renderHomeRoundHighlights(){
 function renderHomeDashboard(){
   const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,3),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,3);
   const allStandings=standingsData(),homeTable=$('#homeStandingsTop');
-  if(homeTable)homeTable.innerHTML=allStandings.map((r,i)=>`<button type="button" class="home-standing-row" data-team-profile="${r.key}"><span class="home-standing-pos">${i+1}</span><img src="${teams[r.key].logo}" alt=""><strong>${escapeHtml(r.name)}</strong><span class="home-standing-points">${r.pts} <small>PTS</small></span></button>`).join('');
-  $('#recentResults').innerHTML=finished.length?finished.map(f=>homeMatchHtml(f,true)).join(''):'<div class="empty-state">Todavía no se ha finalizado ningún partido.</div>';
-  $('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
-  bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
-  renderHomeRoundHighlights();
-  renderNextMatchCard();
+  if(homeTable)homeTable.innerHTML=allStandings.map((r,i)=>`<button type="button" class="home-standing-row" data-team-profile="${r.key}"><span class="home-standing-pos">${i+1}</span><img src="${teams[r.key].logo}" alt="Escudo de ${escapeHtml(r.name)}"><strong>${escapeHtml(r.name)}</strong><span class="home-standing-points">${r.pts} <small>PTS</small></span></button>`).join('');
+  if($('#recentResults'))$('#recentResults').innerHTML=finished.length?finished.map(f=>homeMatchHtml(f,true)).join(''):'<div class="empty-state">Todavía no se ha finalizado ningún partido.</div>';
+  if($('#upcomingMatches'))$('#upcomingMatches').innerHTML=pending.length?pending.map(f=>homeMatchHtml(f,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
+  if($('#recentResults'))bindFixtureQuickActions($('#recentResults'));
+  if($('#upcomingMatches'))bindFixtureQuickActions($('#upcomingMatches'));
+  try{renderHomeRoundHighlights()}catch(err){console.warn('No se pudieron pintar todavía los destacados',err)}
+  try{renderNextMatchCard()}catch(err){console.warn('No se pudo pintar todavía el próximo partido',err)}
   repairBrokenImages($('#view-inicio')||document);
 }
 function homeMatchHtml(f,finished){
@@ -854,7 +897,7 @@ async function hydrateMatchDataFromSupabase(){
         store.set(`match:${f.id}`,state);
       }
       if(!live.running&&findFixture(live.matchId))restoreLiveClockFromState(live.matchId);
-      refreshDataViews();renderLive();
+      refreshDataViews();renderHomeDashboard();renderLive();
       if(activePlayerName&&document.body.dataset.view==='jugador')renderPlayerProfile(activePlayerName);
       if(document.body.dataset.view==='cuenta')renderAccountPanel();
     }catch(err){console.error('No se pudieron cargar los partidos compartidos desde Supabase',err)}

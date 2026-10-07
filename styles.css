@@ -938,3 +938,7 @@ img.team-profile-target:hover {
   font-size:1rem;
 }
 #loginMsg{min-height:1.25em}
+
+/* v32.23 · estabilidad de Inicio */
+#nextHomeLogo,#nextAwayLogo{display:block;object-fit:cover}
+.home-standing-row img,.home-match img{display:block;object-fit:cover}
