@@ -86,6 +86,23 @@ function roundRestHtml(round){const rest=restingTeamsForRound(round);if(rest.len
 
 const allPlayers = Object.entries(teams).flatMap(([key,t])=>t.players.map(([name,captain])=>({name,team:t.name,key,captain})));
 const IDEAL_POSITIONS=[{key:'goalkeeper',label:'Portero',short:'POR',className:'goalkeeper'},{key:'cierre',label:'Cierre',short:'CIE',className:'cierre'},{key:'alaLeft',label:'Ala izquierda',short:'ALA',className:'ala-left'},{key:'alaRight',label:'Ala derecha',short:'ALA',className:'ala-right'},{key:'pivot',label:'Pivot',short:'PIV',className:'pivot'}];
+let idealRemoteLoaded=false;
+const NEWS_MATCHES=[{
+  id:'j1-ordago-fener',round:1,fixtureId:'m2',home:'ordago',away:'fener',displayHome:'Fenerbahçupito',displayAway:'Ordago FC',score:'13–7',
+  headline:'Victoria contundente de Fenerbahçupito',
+  summary:'El primer periódico de la liga repasa el estreno entre Ordago FC y Fenerbahçupito: resultado, MVP, declaraciones, previa y curiosidades.',
+  pages:[
+    {image:'assets/noticias/j1-ordago-fener-01-resultado.png',tag:'FULL TIME',title:'Fenerbahçupito 13–7 Ordago FC',text:'El resumen gráfico del primer partido de la jornada.'},
+    {image:'assets/noticias/j1-ordago-fener-02-mvp.png',tag:'MVP',title:'Mito, MVP del partido',text:'Seis goles y protagonismo total en el estreno.'},
+    {image:'assets/noticias/j1-ordago-fener-03-previa.png',tag:'LA PREVIA',title:'Arnau antes del partido',text:'Las palabras del capitán de Fenerbahçupito antes del encuentro.'},
+    {image:'assets/noticias/j1-ordago-fener-04-miguel.png',tag:'POST GAME',title:'Miguel analiza la derrota',text:'El capitán de Ordago FC deja sus sensaciones después del partido.'},
+    {image:'assets/noticias/j1-ordago-fener-05-victor.png',tag:'POST GAME',title:'Victor, clave en la victoria',text:'Sensaciones tras el triunfo y valoración del encuentro.'},
+    {image:'assets/noticias/j1-ordago-fener-06-mas.png',tag:'MÁS',title:'Voces antes del partido',text:'Entrevistas y declaraciones previas desde Pedralbes.'},
+    {image:'assets/noticias/j1-ordago-fener-07-curiosidades-victor.png',tag:'CURIOSIDADES',title:'Lo que dejó el partido',text:'La cara más informal y humorística de la jornada.'},
+    {image:'assets/noticias/j1-ordago-fener-08-curiosidades-pau.png',tag:'CURIOSIDADES',title:'La opinión de Pau Puig',text:'Pronósticos y comentarios sobre la liga, en tono humorístico.'}
+  ]
+}];
+
 let playerReturnView='equipos';
 let activePlayerName=null;
 let teamReturnView='equipos';
@@ -233,6 +250,7 @@ function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
   window.scrollTo({top:0,behavior:'smooth'});
   if(view==='inicio')renderHomeDashboard();
   if(view==='jornadas')renderRounds();
+  if(view==='noticias')renderNews();
   if(view==='clasificacion')renderStandings();
   if(view==='equipos')renderTeams();
   if(view==='equipo'&&activeTeamKey)renderTeamProfile(activeTeamKey);
@@ -1005,7 +1023,8 @@ function renderLive(){
   $('#timer').textContent=timeText(live.remaining);$('#homeName').textContent=teams[f.home].name;markTeamProfileTarget($('#homeName'),f.home);$('#awayName').textContent=teams[f.away].name;markTeamProfileTarget($('#awayName'),f.away);$('#homeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#homeLogo'),f.home);$('#awayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#awayLogo'),f.away);$('#homeScore').textContent=s.homeScore;$('#awayScore').textContent=s.awayScore;
   $('#half1Btn').classList.toggle('active',live.half===1);$('#half2Btn').classList.toggle('active',live.half===2);const liveStatus=s.finished?'Partido finalizado':(s.started?`● EN JUEGO · ${live.half}ª parte`:availabilityStatus(live.matchId));const shotText=shootoutSummary(s,f);$('#liveMatchLabel').textContent=liveStatus+(shotText?` · ${shotText}`:'')+(editable?' · Edición habilitada':' · Solo lectura');updateSpecialRule();renderMobileReferee(f,s,editable);renderShootoutPanel(f,s,editable);
   const canEditEvents=editable&&(!s.finished||isAdmin());
-  $('#eventsList').innerHTML=s.events.length?s.events.slice().reverse().map(e=>`<div class="event-item"><div><b>⚽ ${playerProfileButton(e.scorer)}</b> · ${e.teamKey?teamProfileInline(e.teamKey,e.team):escapeHtml(e.team)}<small>${e.assist?`🅰️ ${playerProfileButton(e.assist)} · `:''}${e.scoreAfter?`Marcador ${e.scoreAfter}`:''}${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ Gol doble (+2 competición)':''}</small></div><div><strong>${e.half}ª · ${e.minute}'</strong>${canEditEvents?`<button class="ghost compact-btn" type="button" data-edit-goal="${e.id}">Editar</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay eventos.</div>';
+  const goalSideHtml=(side,teamKey)=>{const events=(s.events||[]).filter(e=>e.side===side).slice().reverse();return `<section class="acta-goal-side ${side}"><div class="acta-goal-team"><img src="${teams[teamKey].logo}" alt=""><strong>${teamProfileInline(teamKey)}</strong><span>${events.length} ${events.length===1?'gol':'goles'} reales</span></div><div class="acta-goal-list">${events.length?events.map(e=>`<article class="acta-goal-card">${playerAvatarHtml(e.scorer,'acta-goal-avatar')}<div class="acta-goal-copy"><b>⚽ ${playerProfileButton(e.scorer)}</b><small>${e.assist?`🅰️ ${playerProfileButton(e.assist)}<br>`:''}${e.half}ª parte · ${e.minute}'${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ Gol doble':''}${e.scoreAfter?`<br>Marcador ${e.scoreAfter}`:''}</small></div>${canEditEvents?`<button class="ghost compact-btn" type="button" data-edit-goal="${e.id}">Editar</button>`:''}</article>`).join(''):'<div class="acta-no-goals">Sin goles</div>'}</div></section>`};
+  $('#eventsList').innerHTML=`<div class="acta-goals-split">${goalSideHtml('home',f.home)}${goalSideHtml('away',f.away)}</div>`;
   $$('#eventsList [data-edit-goal]').forEach(btn=>btn.addEventListener('click',()=>openEditGoal(btn.dataset.editGoal)));
   $('#mvpSelect').innerHTML='<option value="">Selecciona MVP</option>'+allMatchPlayers(f).map(p=>`<option ${s.mvp===p?'selected':''}>${p}</option>`).join('');$('#mvpSaved').innerHTML=s.mvp?`⭐ MVP guardado: ${playerProfileButton(s.mvp)}`:'';
   renderMatchParticipants(f,s);
@@ -1193,6 +1212,74 @@ $('#availabilityMatch')?.addEventListener('change',renderAvailability);
 $('#saveAvailabilityOptions')?.addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Gestión disponible solo para administración.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 $('#clearAvailabilityOptions')?.addEventListener('click',()=>{if(!isAdmin())return;if(!confirm('¿Borrar los días propuestos y todos los votos de este partido?'))return;saveAvailabilityData($('#availabilityMatch').value,defaultAvailability());$('#availabilityAdminMsg').textContent='Días borrados.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 
+
+function newsMatchLabel(item){
+  const f=findFixture(item.fixtureId);
+  const left=item.displayHome||teams[f?.away]?.name||'Fenerbahçupito';
+  const right=item.displayAway||teams[f?.home]?.name||'Ordago FC';
+  return `${left} vs ${right}`;
+}
+function renderNews(){
+  const roundSelect=$('#newsRound'),matchSelect=$('#newsMatch'),content=$('#newsContent');
+  if(!roundSelect||!matchSelect||!content)return;
+  const rounds=[...new Set(NEWS_MATCHES.map(n=>n.round))].sort((a,b)=>a-b);
+  const currentRound=Number(roundSelect.value)||rounds[0]||1;
+  roundSelect.innerHTML=rounds.map(r=>`<option value="${r}" ${r===currentRound?'selected':''}>Jornada ${r}</option>`).join('');
+  const matches=NEWS_MATCHES.filter(n=>n.round===currentRound),selected=matches.find(n=>n.id===matchSelect.value)||matches[0];
+  matchSelect.innerHTML=matches.map(n=>`<option value="${n.id}" ${selected?.id===n.id?'selected':''}>${escapeHtml(newsMatchLabel(n))}</option>`).join('');
+  if(!selected){content.innerHTML='<div class="empty-state">Todavía no hay periódico publicado para esta jornada.</div>';return}
+  const main=selected.pages[0],secondary=selected.pages[1];
+  content.innerHTML=`
+    <section class="news-score-strip">
+      <div class="news-team"><img src="${teams.fener.logo}" alt=""><strong>Fenerbahçupito</strong></div>
+      <div class="news-score"><span>JORNADA ${selected.round}</span><strong>${selected.score}</strong><small>FINAL</small></div>
+      <div class="news-team"><img src="${teams.ordago.logo}" alt=""><strong>Ordago FC</strong></div>
+    </section>
+    <section class="news-feature-grid">
+      <button class="news-feature-main" type="button" data-news-image="${main.image}">
+        <img src="${main.image}" alt="${escapeHtml(main.title)}" loading="lazy"><span class="news-overlay"></span>
+        <div class="news-feature-copy"><span class="news-tag">CRÓNICA DEL PARTIDO</span><h2>${escapeHtml(selected.headline)}</h2><p>${escapeHtml(selected.summary)}</p><b>Ver página completa →</b></div>
+      </button>
+      <button class="news-feature-side" type="button" data-news-image="${secondary.image}">
+        <img src="${secondary.image}" alt="${escapeHtml(secondary.title)}" loading="lazy"><span class="news-overlay"></span>
+        <div class="news-feature-copy"><span class="news-tag gold">MVP</span><h3>${escapeHtml(secondary.title)}</h3><p>${escapeHtml(secondary.text)}</p><b>Leer →</b></div>
+      </button>
+    </section>
+    <section class="news-grid">
+      ${selected.pages.slice(2).map(page=>`<button class="news-card" type="button" data-news-image="${page.image}"><img src="${page.image}" alt="${escapeHtml(page.title)}" loading="lazy"><div class="news-card-copy"><span class="news-tag">${escapeHtml(page.tag)}</span><h3>${escapeHtml(page.title)}</h3><p>${escapeHtml(page.text)}</p><b>Abrir página →</b></div></button>`).join('')}
+    </section>`;
+  content.querySelectorAll('[data-news-image]').forEach(btn=>btn.addEventListener('click',()=>openNewsImage(btn.dataset.newsImage)));
+}
+function openNewsImage(src){const d=$('#newsDialog'),img=$('#newsDialogImage');if(!d||!img)return;img.src=src;d.showModal()}
+$('#newsRound')?.addEventListener('change',()=>{$('#newsMatch').value='';renderNews()});
+$('#newsMatch')?.addEventListener('change',renderNews);
+$('#closeNewsDialog')?.addEventListener('click',()=>$('#newsDialog')?.close());
+$('#newsDialog')?.addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close()});
+
+async function hydrateIdealFiveFromSupabase(force=false){
+  if(idealRemoteLoaded&&!force)return;
+  try{
+    await loadRemotePlayerIndex();
+    const {data,error}=await supabaseClient.from('ideal_five').select('round,position,player_id');
+    if(error)throw error;
+    const grouped={};
+    (data||[]).forEach(row=>{const player=remotePlayerById.get(row.player_id);if(!player)return;grouped[row.round]=grouped[row.round]||{};grouped[row.round][row.position]=player.name});
+    Object.entries(grouped).forEach(([round,selection])=>store.set(`ideal:${round}`,normalizeIdealSelection(selection)));
+    idealRemoteLoaded=true;
+    if(document.body.dataset.view==='premios')renderIdeal();
+  }catch(err){console.warn('No se pudo cargar el 5 ideal compartido',err)}
+}
+async function saveIdealFiveToSupabase(round,selection){
+  await loadRemotePlayerIndex();
+  const rows=IDEAL_POSITIONS.map(pos=>({round:Number(round),position:pos.key,player_id:remotePlayerByName.get(selection[pos.key])?.id}));
+  if(rows.some(r=>!r.player_id))throw new Error('No se pudo identificar a uno de los jugadores en Supabase.');
+  const {error:delError}=await supabaseClient.from('ideal_five').delete().eq('round',Number(round));
+  if(delError)throw delError;
+  const {error}=await supabaseClient.from('ideal_five').insert(rows);
+  if(error)throw error;
+  idealRemoteLoaded=true;
+}
+
 function normalizeIdealSelection(saved){
   const empty=Object.fromEntries(IDEAL_POSITIONS.map(pos=>[pos.key,'']));
   if(Array.isArray(saved)){
@@ -1234,12 +1321,15 @@ function renderIdeal(){
   $('#saveIdeal').disabled=!editable;$('#idealSaved').textContent=complete?'5 ideal guardado para esta jornada.':editable?'Selecciona un jugador en cada posición y guarda.':'Solo el administrador puede modificar el 5 ideal.';
 }
 $('#idealRound').addEventListener('change',renderIdeal);
-$('#saveIdeal').addEventListener('click',()=>{
+$('#saveIdeal').addEventListener('click',async()=>{
   if(!isAdmin()){alert('Solo el administrador puede elegir el 5 ideal.');return}
-  const vals=idealSelectionFromForm(),chosen=Object.values(vals).filter(Boolean);
+  const round=$('#idealRound').value,vals=idealSelectionFromForm(),chosen=Object.values(vals).filter(Boolean),btn=$('#saveIdeal');
   if(chosen.length!==5){alert('Selecciona los 5 jugadores de la formación.');return}
   if(new Set(chosen).size!==5){alert('No puedes repetir jugadores en el 5 ideal.');return}
-  store.set(`ideal:${$('#idealRound').value}`,vals);renderIdeal()
+  btn.disabled=true;$('#idealSaved').textContent='Guardando para todos los dispositivos…';
+  try{await saveIdealFiveToSupabase(round,vals);store.set(`ideal:${round}`,vals);renderIdeal();$('#idealSaved').textContent='✓ 5 ideal guardado y sincronizado para todos los dispositivos.'}
+  catch(err){console.error(err);$('#idealSaved').textContent='No se pudo sincronizar el 5 ideal. Inténtalo de nuevo.'}
+  finally{btn.disabled=!isAdmin()}
 });
 
 function renderPlayerProfile(name){
@@ -1549,6 +1639,8 @@ supabaseClient.auth.onAuthStateChange((_event,session)=>{
 });
 loadCurrentUserFromSupabase().catch(err=>console.warn('No se pudo cargar la sesión inicial',err));
 loadRemotePlayerIndex().then(()=>{renderHomeDashboard();renderRankings();if(activePlayerName&&document.body.dataset.view==='jugador')renderPlayerProfile(activePlayerName)}).catch(err=>console.warn('No se pudieron cargar todavía las fotos de jugadores',err));
+hydrateIdealFiveFromSupabase().catch(()=>{});
+renderNews();
 
 // v6 · configuración local de recordatorios (el envío real se conectará al backend al publicar)
 function reminderSettings(){return store.get('league:reminders',{availabilityEnabled:true,availabilityCadence:'24',matchEnabled:true,match24:true,match2:true})}

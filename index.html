@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-23" />
+  <link rel="stylesheet" href="styles.css?v=32-24" />
 </head>
 <body>
   <header class="topbar">
@@ -22,6 +22,7 @@
       <span class="nav-section-label">Competición</span>
       <button class="nav-link active" data-view="inicio"><span class="nav-icon">🏠</span><span>Inicio</span></button>
       <button class="nav-link" data-view="jornadas"><span class="nav-icon">📅</span><span>Jornadas</span></button>
+      <button class="nav-link" data-view="noticias"><span class="nav-icon">📰</span><span>Noticias</span></button>
       <button class="nav-link" data-view="clasificacion"><span class="nav-icon">📊</span><span>Clasificación</span></button>
       <button class="nav-link" data-view="equipos"><span class="nav-icon">🛡️</span><span>Equipos</span></button>
       <span class="nav-section-label">Estadísticas</span>
@@ -303,6 +304,18 @@
       </section>
     </section>
 
+    <section class="view" id="view-noticias">
+      <div class="news-hero">
+        <div><span class="eyebrow">EL PERIÓDICO DE LA LIGA</span><h1>Noticias</h1><p>Crónicas, entrevistas, curiosidades y todo lo que deja cada jornada.</p></div>
+        <div class="news-hero-badge">📰 PEDRALBES</div>
+      </div>
+      <div class="news-filters">
+        <label for="newsRound">Jornada<select id="newsRound"></select></label>
+        <label for="newsMatch">Partido<select id="newsMatch"></select></label>
+      </div>
+      <div id="newsContent" class="news-content"></div>
+    </section>
+
     <section class="view" id="view-streaming">
       <button id="streamingBack" class="ghost back-btn" type="button">← Volver</button>
       <div class="page-head"><div><span class="eyebrow">YOUTUBE LIVE</span><h1>Streaming y grabaciones</h1><p>El directo se emitirá por YouTube y se verá integrado dentro de la web. La grabación quedará vinculada al partido.</p></div></div>
@@ -497,6 +510,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-23"></script>
+  <script src="app.js?v=32-24"></script>
+
+  <dialog id="newsDialog" class="news-dialog">
+    <button id="closeNewsDialog" class="news-dialog-close" type="button" aria-label="Cerrar">✕</button>
+    <img id="newsDialogImage" alt="Página del periódico de la liga">
+  </dialog>
+
 </body>
 </html>
