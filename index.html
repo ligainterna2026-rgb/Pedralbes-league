@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Pedralbes League</title>
-  <link rel="stylesheet" href="styles.css?v=32-30" />
+  <link rel="stylesheet" href="styles.css?v=32-31" />
 </head>
 <body>
   <header class="topbar">
@@ -381,12 +381,22 @@
         </form>
         <form id="registerForm" class="panel auth-card">
           <span class="eyebrow">NUEVA CUENTA</span><h2>Registrarse</h2>
+          <div class="register-type-switch" role="group" aria-label="Tipo de registro">
+            <label><input id="registerTypePlayer" name="registerType" type="radio" value="player" checked> <span>⚽ Jugador</span></label>
+            <label><input id="registerTypeGuest" name="registerType" type="radio" value="guest"> <span>👤 Invitado</span></label>
+          </div>
           <label for="registerEmail">Correo</label><input id="registerEmail" type="email" autocomplete="email" required>
           <label for="registerPassword">Contraseña</label><div style="display:flex;gap:8px;align-items:center"><input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" style="flex:1;min-width:0"><button class="ghost" type="button" data-toggle-password="registerPassword" aria-pressed="false" style="white-space:nowrap">👁 Mostrar</button></div>
-          <label for="registerPlayer">¿Qué jugador eres?</label>
-          <select id="registerPlayer" required><option value="">Selecciona tu jugador</option></select>
+          <div id="registerPlayerFields">
+            <label for="registerPlayer">¿Qué jugador eres?</label>
+            <select id="registerPlayer" required><option value="">Selecciona tu jugador</option></select>
+          </div>
+          <div id="registerGuestFields" hidden>
+            <label for="registerGuestName">Nombre</label>
+            <input id="registerGuestName" type="text" autocomplete="name" placeholder="Tu nombre">
+          </div>
           <button class="secondary full" type="submit">Crear cuenta y vincular jugador</button>
-          <div class="notice compact">Al registrarte, tu cuenta quedará vinculada directamente al jugador que elijas y tendrás el rol <strong>Jugador</strong>. No necesita aprobación del administrador. Los roles <strong>Árbitro</strong> y <strong>Administrador</strong> solo los puede asignar la cuenta principal de la liga.</div>
+          <div id="registerTypeNote" class="notice compact">Tu cuenta quedará vinculada al jugador elegido y tendrás el rol <strong>Jugador</strong>.</div>
           <div id="registerMsg" class="saved-msg"></div>
         </form>
       </div>
@@ -518,7 +528,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-30"></script>
+  <script src="app.js?v=32-31"></script>
 
 </body>
 </html>

@@ -1007,3 +1007,6 @@ img.team-profile-target:hover {
   #view-inicio .home-highlight-panel .stats-cards{grid-template-columns:1fr}
   .home-mvps-pair{grid-template-columns:1fr 1fr}
 }
+
+/* v32.31 · registro como jugador o invitado */
+.register-type-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 8px}.register-type-switch label{cursor:pointer}.register-type-switch input{position:absolute;opacity:0;pointer-events:none}.register-type-switch span{display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.035);font-weight:900}.register-type-switch input:checked+span{border-color:rgba(245,199,111,.8);background:rgba(245,199,111,.12);color:#f5c76f}.role.guest{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.2)}

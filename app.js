@@ -177,7 +177,8 @@ async function setSession(email){
 }
 function hasRole(role,user=currentUser()){return !!user?.roles?.includes(role)}
 function isAdmin(){return hasRole('admin')}
-function isPlayer(){return hasRole('player')}
+function isRegisteredGuest(){const u=currentUser();return !!u&&!u.linkedPlayer&&!hasRole('admin',u)&&!hasRole('referee',u)}
+function isPlayer(){return hasRole('player')||isRegisteredGuest()}
 function isReferee(){return hasRole('referee')}
 function linkedPlayer(){return currentUser()?.linkedPlayer||null}
 function claimedPlayerNames(exceptEmail=''){
@@ -201,9 +202,11 @@ async function renderRegisterPlayerOptions(){
   const available=data||[];
   const byTeam=Object.entries(teams).map(([key,t])=>({key,t,players:available.filter(p=>p.team_id===key)})).filter(g=>g.players.length);
   select.innerHTML='<option value="">Selecciona tu jugador</option>'+byTeam.map(g=>`<optgroup label="${escapeHtml(g.t.name)}">${g.players.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.captain?' · Capitán':''}</option>`).join('')}</optgroup>`).join('');
-  select.disabled=!available.length;
-  const submit=$('#registerForm button[type="submit"]'); if(submit)submit.disabled=!available.length;
-  const msg=$('#registerMsg'); if(msg&&!available.length)msg.textContent='Todos los jugadores ya tienen una cuenta vinculada.';
+  const guestMode=$('#registerTypeGuest')?.checked;
+  select.disabled=guestMode||!available.length;
+  select.required=!guestMode;
+  const submit=$('#registerForm button[type="submit"]'); if(submit)submit.disabled=!guestMode&&!available.length;
+  const msg=$('#registerMsg'); if(msg&&!available.length&&!guestMode)msg.textContent='Todos los jugadores ya tienen una cuenta vinculada. También puedes registrarte como invitado.';
 }
 function refereeAssignments(){return store.get('league:refereeAssignments',{})}
 function assignedRefEmail(matchId){return refereeAssignments()[matchId]||''}
@@ -295,7 +298,7 @@ $('#accountBtn').addEventListener('click',()=>navigate(currentUser()?'cuenta':'a
 function refreshAuthUI(){
   const u=currentUser();
   $('#accountLabel').textContent=u?(u.linkedPlayer||u.displayName||u.email.split('@')[0]):'Entrar';
-  $('#accountRole').textContent=u?(u.roles?.length?u.roles.map(roleLabel).join(' · '):(u.linkedPlayer?'Jugador':'Usuario')):'Visitante';
+  $('#accountRole').textContent=u?(u.roles?.length?u.roles.map(roleLabel).join(' · '):(u.linkedPlayer?'Jugador':'Invitado')):'Visitante';
   const avatar=$('#accountAvatar');
   if(avatar){
     if(!u){
@@ -312,9 +315,9 @@ function refreshAuthUI(){
   $$('.admin-only').forEach(el=>el.hidden=!isAdmin());
   $$('.admin-only-block').forEach(el=>el.hidden=!isAdmin());
 }
-function roleLabel(r){return r==='admin'?'Admin':r==='referee'?'Árbitro':r==='player'?'Jugador':r}
+function roleLabel(r){return r==='admin'?'Admin':r==='referee'?'Árbitro':r==='player'?'Jugador':r==='guest'?'Invitado':r}
 function roleBadges(u){
-  if(!u?.roles?.length)return '<span class="role guest">PENDIENTE</span>';
+  if(!u?.roles?.length)return '<span class="role guest">INVITADO</span>';
   return u.roles.map(r=>`<span class="role ${r==='referee'?'ref':r}">${roleLabel(r).toUpperCase()}</span>`).join(' ');
 }
 function renderAccountPanel(){
@@ -327,7 +330,7 @@ function renderAccountPanel(){
   const avatar=photo?`<img src="${escapeHtml(photo)}" alt="Foto de ${escapeHtml(u.linkedPlayer)}">`:escapeHtml(initials);
   const linkedBlock=u.linkedPlayer?`<div class="account-player-link"><div class="account-linked-avatar">${avatar}</div><div><span class="eyebrow">JUGADOR VINCULADO</span><strong>${escapeHtml(u.linkedPlayer)}</strong><small>${team?teamProfileInline(playerMeta.key,team.name):''}</small></div></div>`:'';
   const photoControls=u.linkedPlayer?`<div class="account-photo-tools"><label class="photo-upload-btn" for="accountPhotoInput">📷 Cambiar foto</label><input id="accountPhotoInput" type="file" accept="image/*" hidden><button id="accountRemovePhoto" class="ghost" type="button" ${photo?'':'disabled'}>Quitar foto</button><span id="accountPhotoStatus" class="muted">La foto queda guardada en tu jugador y se verá en todos los dispositivos.</span></div>`:'';
-  $('#accountPanel').innerHTML=`<section class="panel account-summary"><div class="account-summary-main"><span class="account-big-avatar">${avatar}</span><div><span class="eyebrow">SESIÓN ACTIVA</span><h2>${escapeHtml(u.linkedPlayer||u.displayName||'Usuario')}</h2><p class="muted">${escapeHtml(u.email)}</p><div class="role-row">${roleBadges(u)}</div></div></div><div class="account-actions">${u.linkedPlayer?`<button class="secondary" type="button" data-player-profile="${escapeHtml(u.linkedPlayer)}">Abrir mi ficha</button>`:''}${isAdmin()?'<button class="ghost" type="button" data-open-admin>Panel de administración</button>':''}<button id="logoutBtn" class="ghost" type="button">Cerrar sesión</button></div></section>${u.linkedPlayer?`<section class="panel account-linked-player">${linkedBlock}${photoControls}</section>`:''}<div class="notice">${u.linkedPlayer?'Esta cuenta está vinculada a '+escapeHtml(u.linkedPlayer)+'. La foto se administra aquí y queda asociada a su ficha de jugador.':'Esta cuenta no está vinculada a un jugador.'}</div>`;
+  $('#accountPanel').innerHTML=`<section class="panel account-summary"><div class="account-summary-main"><span class="account-big-avatar">${avatar}</span><div><span class="eyebrow">SESIÓN ACTIVA</span><h2>${escapeHtml(u.linkedPlayer||u.displayName||'Usuario')}</h2><p class="muted">${escapeHtml(u.email)}</p><div class="role-row">${roleBadges(u)}</div></div></div><div class="account-actions">${u.linkedPlayer?`<button class="secondary" type="button" data-player-profile="${escapeHtml(u.linkedPlayer)}">Abrir mi ficha</button>`:''}${isAdmin()?'<button class="ghost" type="button" data-open-admin>Panel de administración</button>':''}<button id="logoutBtn" class="ghost" type="button">Cerrar sesión</button></div></section>${u.linkedPlayer?`<section class="panel account-linked-player">${linkedBlock}${photoControls}</section>`:''}<div class="notice">${u.linkedPlayer?'Esta cuenta está vinculada a '+escapeHtml(u.linkedPlayer)+'. La foto se administra aquí y queda asociada a su ficha de jugador.':'Estás registrado como invitado. Tienes los mismos permisos generales que un jugador, pero sin ficha de jugador vinculada.'}</div>`;
   $('#logoutBtn')?.addEventListener('click',async()=>{await setSession(null);navigate('inicio')});
   $('[data-open-admin]')?.addEventListener('click',()=>navigate('admin'));
   bindAccountPhotoControls();
@@ -379,18 +382,21 @@ $('#loginForm').addEventListener('submit',async e=>{
 });
 $('#registerForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const email=$('#registerEmail').value.trim().toLowerCase(),password=$('#registerPassword').value,playerId=$('#registerPlayer').value;
+  const email=$('#registerEmail').value.trim().toLowerCase(),password=$('#registerPassword').value;
+  const guestMode=$('#registerTypeGuest')?.checked;
+  const playerId=guestMode?'':$('#registerPlayer').value;
+  const guestName=$('#registerGuestName')?.value.trim()||'';
   const msg=$('#registerMsg');
   if(!/^\S+@\S+\.\S+$/.test(email)){ msg.textContent='Introduce un correo válido.'; return; }
   if(password.length<6){msg.textContent='La contraseña debe tener al menos 6 caracteres.';return}
-  if(!playerId){msg.textContent='Selecciona qué jugador eres.';return}
+  if(guestMode&&!guestName){msg.textContent='Escribe tu nombre para registrarte como invitado.';return}
+  if(!guestMode&&!playerId){msg.textContent='Selecciona qué jugador eres.';return}
   const selected=$('#registerPlayer').selectedOptions[0];
-  const displayName=selected?.textContent?.replace(' · Capitán','').trim() || email.split('@')[0];
-  msg.textContent='Creando cuenta...';
-  const {data,error}=await supabaseClient.auth.signUp({
-    email,password,
-    options:{data:{player_id:playerId,display_name:displayName}}
-  });
+  const displayName=guestMode?guestName:(selected?.textContent?.replace(' · Capitán','').trim() || email.split('@')[0]);
+  msg.textContent=guestMode?'Creando cuenta de invitado...':'Creando cuenta...';
+  const metadata={display_name:displayName};
+  if(playerId)metadata.player_id=playerId;
+  const {data,error}=await supabaseClient.auth.signUp({email,password,options:{data:metadata}});
   if(error){
     const text=String(error.message||'').toLowerCase();
     msg.textContent=text.includes('already')?'Ese correo ya tiene una cuenta.':text.includes('jugador')?'Ese jugador ya está vinculado a otra cuenta.':'No se pudo crear la cuenta. Prueba de nuevo.';
@@ -400,12 +406,24 @@ $('#registerForm').addEventListener('submit',async e=>{
   await renderRegisterPlayerOptions();
   if(data.session){
     await loadCurrentUserFromSupabase(data.user);
-    msg.textContent='Cuenta creada y jugador vinculado.';
+    msg.textContent=guestMode?'Cuenta de invitado creada.':'Cuenta creada y jugador vinculado.';
     navigate('cuenta');
   }else{
     msg.textContent='Cuenta creada. Revisa tu correo para confirmar la cuenta y después inicia sesión.';
   }
 });
+function updateRegistrationMode(){
+  const guest=$('#registerTypeGuest')?.checked;
+  const playerWrap=$('#registerPlayerFields'),guestWrap=$('#registerGuestFields'),select=$('#registerPlayer'),guestName=$('#registerGuestName'),submit=$('#registerForm button[type="submit"]'),note=$('#registerTypeNote');
+  if(playerWrap)playerWrap.hidden=!!guest;if(guestWrap)guestWrap.hidden=!guest;
+  if(select){select.required=!guest;select.disabled=!!guest||!select.options.length;}
+  if(guestName)guestName.required=!!guest;
+  if(submit)submit.textContent=guest?'Crear cuenta de invitado':'Crear cuenta y vincular jugador';
+  if(note)note.innerHTML=guest?'Tendrás los <strong>mismos permisos generales que un jugador registrado</strong>, pero sin una ficha de jugador vinculada.':'Tu cuenta quedará vinculada al jugador elegido y tendrás el rol <strong>Jugador</strong>.';
+  renderRegisterPlayerOptions();
+}
+$('#registerTypePlayer')?.addEventListener('change',updateRegistrationMode);
+$('#registerTypeGuest')?.addEventListener('change',updateRegistrationMode);
 $('#demoAdminLogin')?.closest('.demo-login-panel')?.setAttribute('hidden','');
 
 function defaultMatchState(){return {homeScore:0,awayScore:0,events:[],shootoutEvents:[],shootoutActive:false,mvp:null,participants:[],finished:false,started:false}}
