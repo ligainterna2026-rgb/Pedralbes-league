@@ -257,7 +257,7 @@ function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
   if(view==='jugador'&&activePlayerName)renderPlayerProfile(activePlayerName);
   if(view==='goleadores'||view==='asistencias'||view==='mvps'||view==='jugadores')renderRankings();
   if(view==='streaming')renderStreaming();
-  if(view==='premios')renderIdeal();
+  if(view==='premios'){renderIdeal();hydrateIdealFiveFromSupabase(true).then(()=>renderIdeal()).catch(err=>console.warn('No se pudo actualizar el 5 ideal',err));}
   if(view==='directo')renderLive();
   if(view==='cuenta')renderAccountPanel();
   if(view==='acceso')renderRegisterPlayerOptions();
@@ -1250,7 +1250,7 @@ function renderNews(){
     </section>`;
   content.querySelectorAll('[data-news-image]').forEach(btn=>btn.addEventListener('click',()=>openNewsImage(btn.dataset.newsImage)));
 }
-function openNewsImage(src){const d=$('#newsDialog'),img=$('#newsDialogImage');if(!d||!img)return;img.src=src;d.showModal()}
+function openNewsImage(src){const d=$('#newsDialog'),img=$('#newsDialogImage');if(!d||!img)return;img.src=src;img.onerror=()=>{img.alt='No se ha podido cargar esta página del periódico.'};d.showModal()}
 $('#newsRound')?.addEventListener('change',()=>{$('#newsMatch').value='';renderNews()});
 $('#newsMatch')?.addEventListener('change',renderNews);
 $('#closeNewsDialog')?.addEventListener('click',()=>$('#newsDialog')?.close());
@@ -1266,7 +1266,7 @@ async function hydrateIdealFiveFromSupabase(force=false){
     (data||[]).forEach(row=>{const player=remotePlayerById.get(row.player_id);if(!player)return;grouped[row.round]=grouped[row.round]||{};grouped[row.round][row.position]=player.name});
     Object.entries(grouped).forEach(([round,selection])=>store.set(`ideal:${round}`,normalizeIdealSelection(selection)));
     idealRemoteLoaded=true;
-    if(document.body.dataset.view==='premios')renderIdeal();
+    if(document.body.dataset.view==='premios'){renderIdeal();const msg=$('#idealSaved');if(msg&&Object.keys(grouped).length)msg.textContent='5 ideal sincronizado con la liga.';}
   }catch(err){console.warn('No se pudo cargar el 5 ideal compartido',err)}
 }
 async function saveIdealFiveToSupabase(round,selection){
@@ -1298,7 +1298,7 @@ function idealSelectionFromForm(){
 }
 function idealPlayerCardHtml(pos,playerName,editable=isAdmin()){
   const meta=playerName?allPlayers.find(p=>p.name===playerName):null,team=meta?teams[meta.key]:null,round=Number($('#idealRound')?.value||0),roundStats=playerName?playerRoundStats(playerName,round):{goals:0,assists:0};
-  const selectHtml=`<div class="ideal-picker"><label for="ideal-${pos.key}">Jugador</label><select id="ideal-${pos.key}" data-position="${pos.key}" ${editable?'':'disabled'}><option value="">Selecciona jugador</option>${allPlayers.map(p=>`<option value="${escapeHtml(p.name)}" ${playerName===p.name?'selected':''}>${escapeHtml(p.name)} · ${p.team}</option>`).join('')}</select>${editable?'':'<small>Solo el administrador puede editar.</small>'}</div>`;
+  const selectHtml=editable?`<div class="ideal-picker"><label for="ideal-${pos.key}">Jugador</label><select id="ideal-${pos.key}" data-position="${pos.key}"><option value="">Selecciona jugador</option>${allPlayers.map(p=>`<option value="${escapeHtml(p.name)}" ${playerName===p.name?'selected':''}>${escapeHtml(p.name)} · ${p.team}</option>`).join('')}</select></div>`:'';
   if(playerName){
     return `<article class="ideal-player-card filled ${pos.className}"><div class="ideal-card-top"><span class="ideal-role-tag">${pos.label}</span>${team?`<img class="ideal-team-logo team-profile-target" src="${team.logo}" alt="${escapeHtml(team.name)}" data-team-profile="${meta.key}">`:''}</div>${playerAvatarHtml(playerName,'ideal-avatar')}
       <div class="ideal-player-copy"><strong>${playerProfileButton(playerName)}</strong><small>${meta?teamProfileInline(meta.key,meta.team):''}</small><div style="display:flex;gap:10px;justify-content:center;margin-top:5px;font-size:.82rem;font-weight:800"><span>⚽ ${roundStats.goals}</span><span>🅰️ ${roundStats.assists}</span></div></div>${selectHtml}</article>`;
@@ -1320,7 +1320,7 @@ function renderIdeal(){
   const complete=IDEAL_POSITIONS.every(pos=>saved[pos.key]);
   $('#saveIdeal').disabled=!editable;$('#idealSaved').textContent=complete?'5 ideal guardado para esta jornada.':editable?'Selecciona un jugador en cada posición y guarda.':'Solo el administrador puede modificar el 5 ideal.';
 }
-$('#idealRound').addEventListener('change',renderIdeal);
+$('#idealRound').addEventListener('change',()=>{renderIdeal();hydrateIdealFiveFromSupabase(true).then(()=>renderIdeal()).catch(()=>{});});
 $('#saveIdeal').addEventListener('click',async()=>{
   if(!isAdmin()){alert('Solo el administrador puede elegir el 5 ideal.');return}
   const round=$('#idealRound').value,vals=idealSelectionFromForm(),chosen=Object.values(vals).filter(Boolean),btn=$('#saveIdeal');
