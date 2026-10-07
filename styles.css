@@ -918,3 +918,6 @@ img.team-profile-target:hover {
 
 /* v32.19 · disponibilidad retirada de la web; asistencia solo desde el acta */
 .attendance-note{margin:0 0 12px}
+
+/* v32.21 · acceso robusto */
+#loginForm button[type="submit"]:disabled{opacity:.65;cursor:wait}
