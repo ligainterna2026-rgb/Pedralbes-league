@@ -103,12 +103,17 @@ async function loadCurrentUserFromSupabase(authUser=null){
         try{await withTimeout(hydrateMatchDataFromSupabase(),7000,'La sincronización de partidos')}catch(err){console.warn(err)}
         restoreLastViewAfterAuth();return null;
       }
-      const [profileRes,rolesRes,playerRes] = await withTimeout(Promise.all([
-        supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
-        supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
-        supabaseClient.from('players').select('id,name,team_id,captain,photo_url').eq('user_id',user.id).maybeSingle()
-      ]),8000,'La carga de la cuenta');
-      const profile=profileRes?.data,roles=rolesRes?.data,player=playerRes?.data;
+      let profileRes={data:null},rolesRes={data:[]},playerRes={data:null};
+      try{
+        [profileRes,rolesRes,playerRes] = await withTimeout(Promise.all([
+          supabaseClient.from('profiles').select('display_name').eq('id',user.id).maybeSingle(),
+          supabaseClient.from('user_roles').select('role').eq('user_id',user.id),
+          supabaseClient.from('players').select('id,name,team_id,captain,photo_url').eq('user_id',user.id).maybeSingle()
+        ]),8000,'La carga de la cuenta');
+      }catch(accountLoadError){
+        console.warn('La sesión está activa pero los datos de cuenta tardan en cargar.',accountLoadError);
+      }
+      const profile=profileRes?.data,roles=rolesRes?.data||[],player=playerRes?.data;
       authStateUser={
         id:user.id,
         email:user.email||'',
@@ -302,15 +307,37 @@ $('#loginForm').addEventListener('submit',async e=>{
   msg.textContent='Entrando...';
   try{
     const {data,error}=await withTimeout(supabaseClient.auth.signInWithPassword({email,password}),10000,'El inicio de sesión');
-    if(error){msg.textContent='No se ha podido iniciar sesión. Revisa el correo y la contraseña.';return}
-    await loadCurrentUserFromSupabase(data.user);
+    if(error){
+      msg.textContent='No se ha podido iniciar sesión. Revisa el correo y la contraseña.';
+      return;
+    }
+
+    // La autenticación ya ha sido aceptada. No bloqueamos la entrada por cargas secundarias.
+    authStateUser={
+      id:data.user.id,
+      email:data.user.email||email,
+      displayName:data.user.user_metadata?.display_name || (data.user.email||email).split('@')[0],
+      linkedPlayer:null,
+      linkedPlayerId:null,
+      linkedPlayerPhoto:null,
+      roles:[]
+    };
+    authReady=true;
+    refreshAuthUI();
     msg.textContent='Sesión iniciada.';
     navigate('cuenta');
+
+    // Perfil, roles, fotos y partidos se completan en segundo plano.
+    loadCurrentUserFromSupabase(data.user).catch(err=>{
+      console.warn('La sesión está iniciada, pero alguna información secundaria tardó en cargar.',err);
+      refreshAuthUI();
+      if(document.body.dataset.view==='cuenta')renderAccountPanel();
+    });
   }catch(err){
     console.error('Error de acceso',err);
     msg.textContent=err?.message?.includes('tardando demasiado')
-      ?'La conexión está tardando demasiado. Pulsa de nuevo en Entrar.'
-      :'No se pudo completar el inicio de sesión. Inténtalo de nuevo.';
+      ?'La conexión está tardando demasiado. Vuelve a pulsar Entrar.'
+      :'No se pudo conectar con el servidor. Inténtalo de nuevo.';
   }finally{
     if(submit)submit.disabled=false;
   }
@@ -353,6 +380,20 @@ function findFixture(id){return fixtures.find(f=>f.id===id)}
 function fixtureLabel(f){return `J${f.round} · ${teams[f.home].name} vs ${teams[f.away].name}`}
 function playerPhoto(name){return remotePlayerByName.get(name)?.photo_url || (authStateUser?.linkedPlayer===name?authStateUser.linkedPlayerPhoto:null) || store.get(`playerPhoto:${name}`,null)}
 function playerAvatarHtml(name,extraClass=''){const photo=playerPhoto(name);return photo?`<span class="avatar ${extraClass}"><img src="${photo}" alt="Foto de ${escapeHtml(name)}"></span>`:`<span class="avatar ${extraClass}">${escapeHtml(name.split(' ').map(x=>x[0]).slice(0,2).join(''))}</span>`}
+function repairBrokenImages(root=document){
+  root.querySelectorAll('img').forEach(img=>{
+    if(img.dataset.imageRepairBound)return;
+    img.dataset.imageRepairBound='1';
+    img.addEventListener('error',()=>{
+      img.classList.add('image-load-failed');
+      const teamKey=img.dataset.teamProfile;
+      if(teamKey&&teams[teamKey]){
+        img.alt=teams[teamKey].name;
+        img.parentElement?.classList.add('image-fallback-parent');
+      }
+    });
+  });
+}
 const playerProfileButton=name=>`<button type="button" class="player-name-button" data-player-profile="${escapeHtml(name)}">${escapeHtml(name)}</button>`;
 const teamProfileInline=(key,label=teams[key]?.name||key,extraClass='')=>`<span class="team-profile-inline ${extraClass}" data-team-profile="${escapeHtml(key)}" role="button" tabindex="0">${escapeHtml(label)}</span>`;
 function markTeamProfileTarget(el,key){if(!el||!key||!teams[key])return;el.dataset.teamProfile=key;el.classList.add('team-profile-target');el.setAttribute('role','button');el.setAttribute('tabindex','0');el.setAttribute('aria-label',`Abrir ficha de ${teams[key].name}`)}
@@ -639,10 +680,11 @@ function renderHomeDashboard(){
   bindFixtureQuickActions($('#recentResults'));bindFixtureQuickActions($('#upcomingMatches'));
   renderHomeRoundHighlights();
   renderNextMatchCard();
+  repairBrokenImages($('#view-inicio')||document);
 }
 function homeMatchHtml(f,finished){
   const s=getStateFor(f.id),playing=s.started&&!s.finished;
-  return `<div class="home-match home-match-with-actions"><div class="home-match-main"><div class="club"><img src="${teams[f.home].logo}" alt="" data-team-profile="${f.home}" class="team-profile-target"><div><strong>${teamProfileInline(f.home)}</strong><small>Jornada ${f.round}</small></div></div><strong>${finished?matchResultText(f,s):(playing?`${s.homeScore}–${s.awayScore}`:'VS')}</strong><div class="club"><div><strong>${teamProfileInline(f.away)}</strong><small>${finished?'Finalizado':playing?'En juego':availabilityStatus(f.id)}</small></div><img src="${teams[f.away].logo}" alt="" data-team-profile="${f.away}" class="team-profile-target"></div></div><div class="home-match-actions">${fixtureQuickActions(f,'home')}</div></div>`;
+  return `<div class="home-match home-match-with-actions"><div class="home-match-main"><div class="club"><img src="${teams[f.home].logo}" alt="" data-team-profile="${f.home}" class="team-profile-target"><div><strong>${teamProfileInline(f.home)}</strong><small>Jornada ${f.round}</small></div></div><strong>${finished?matchResultText(f,s):(playing?`${s.homeScore}–${s.awayScore}`:'VS')}</strong><div class="club"><div><strong>${teamProfileInline(f.away)}</strong><small>${finished?'Finalizado':playing?'En juego':'Fecha por decidir'}</small></div><img src="${teams[f.away].logo}" alt="" data-team-profile="${f.away}" class="team-profile-target"></div></div><div class="home-match-actions">${fixtureQuickActions(f,'home')}</div></div>`;
 }
 function nextPendingFixture(){return fixtures.find(f=>!getStateFor(f.id).finished)||null}
 function ensureNextMatchRefereeButton(){
@@ -1463,6 +1505,7 @@ supabaseClient.auth.onAuthStateChange((_event,session)=>{
   loadCurrentUserFromSupabase(next).catch(err=>console.warn('No se pudo refrescar la sesión',err));
 });
 loadCurrentUserFromSupabase().catch(err=>console.warn('No se pudo cargar la sesión inicial',err));
+loadRemotePlayerIndex().then(()=>{renderHomeDashboard();renderRankings();if(activePlayerName&&document.body.dataset.view==='jugador')renderPlayerProfile(activePlayerName)}).catch(err=>console.warn('No se pudieron cargar todavía las fotos de jugadores',err));
 
 // v6 · configuración local de recordatorios (el envío real se conectará al backend al publicar)
 function reminderSettings(){return store.get('league:reminders',{availabilityEnabled:true,availabilityCadence:'24',matchEnabled:true,match24:true,match2:true})}
