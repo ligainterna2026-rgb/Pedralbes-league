@@ -270,6 +270,11 @@ function goBack(fallback='inicio'){
   navigate(target,{fromBack:true,fromPop:true});
 }
 window.addEventListener('popstate',event=>{
+  const dialog=$('#newsDialog');
+  if((dialog?.open || newsDialogHistoryOpen) && !event.state?.newsModal){
+    closeNewsImage({fromHistory:true});
+    return;
+  }
   const target=event.state?.leagueInternal?event.state.leagueView:'inicio';
   navigate(target||'inicio',{fromPop:true,fromBack:true});
 });
@@ -1250,13 +1255,29 @@ function renderNews(){
     </section>`;
   content.querySelectorAll('[data-news-image]').forEach(btn=>btn.addEventListener('click',()=>openNewsImage(btn.dataset.newsImage)));
 }
-function closeNewsImage(){
+let newsDialogHistoryOpen=false;
+let newsDialogClosing=false;
+function closeNewsImage({fromHistory=false}={}){
   const d=$('#newsDialog'),img=$('#newsDialogImage');
   if(!d)return;
+
+  // Cerramos visualmente SIEMPRE primero. Así la X no depende del historial.
+  newsDialogClosing=true;
   try{if(typeof d.close==='function'&&d.open)d.close()}catch{}
   d.classList.remove('fallback-open');
   d.removeAttribute('open');
   if(img){img.removeAttribute('src');img.alt='Página del periódico de la liga';}
+
+  const shouldPopHistory=!fromHistory && newsDialogHistoryOpen && history.state?.newsModal;
+  newsDialogHistoryOpen=false;
+  newsDialogClosing=false;
+
+  // Quitamos el estado ficticio que añadimos al abrir la foto, pero ya está cerrada.
+  if(shouldPopHistory){
+    setTimeout(()=>{
+      if(history.state?.newsModal)history.back();
+    },0);
+  }
 }
 function openNewsImage(src){
   const d=$('#newsDialog'),img=$('#newsDialogImage');
@@ -1265,19 +1286,33 @@ function openNewsImage(src){
   img.onerror=()=>{img.alt='No se ha podido cargar esta página del periódico.'};
   img.src=src;
   try{
-    if(typeof d.showModal==='function')d.showModal();
-    else{d.setAttribute('open','open');d.classList.add('fallback-open');}
+    if(typeof d.showModal==='function'&&!d.open)d.showModal();
+    else if(!d.open){d.setAttribute('open','open');d.classList.add('fallback-open');}
   }catch(_err){
     d.setAttribute('open','open');
     d.classList.add('fallback-open');
   }
+  if(!history.state?.newsModal){
+    const currentView=document.body.dataset.view||'noticias';
+    history.pushState({...history.state,leagueInternal:true,leagueView:currentView,newsModal:true},'',location.href);
+  }
+  newsDialogHistoryOpen=true;
 }
 $('#newsRound')?.addEventListener('change',()=>{$('#newsMatch').value='';renderNews()});
 $('#newsMatch')?.addEventListener('change',renderNews);
-['click','pointerup','touchend'].forEach(evt=>$('#closeNewsDialog')?.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();closeNewsImage();},{passive:false}));
-$('#newsDialogImage')?.addEventListener('click',e=>e.stopPropagation());
-$('#newsDialog')?.addEventListener('click',e=>{if(e.target===e.currentTarget)closeNewsImage()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#newsDialog')?.open)closeNewsImage()});
+// Delegado: funciona aunque el diálogo esté definido después de app.js en el HTML.
+document.addEventListener('click',e=>{
+  const close=e.target.closest?.('#closeNewsDialog');
+  if(close){e.preventDefault();e.stopPropagation();closeNewsImage();return;}
+  const d=$('#newsDialog');
+  if(d?.open && e.target===d)closeNewsImage();
+});
+document.addEventListener('pointerup',e=>{
+  if(e.target.closest?.('#closeNewsDialog')){e.preventDefault();e.stopPropagation();closeNewsImage();}
+},{passive:false});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&$('#newsDialog')?.open){e.preventDefault();closeNewsImage();}
+});
 
 async function hydrateIdealFiveFromSupabase(force=false){
   if(idealRemoteLoaded&&!force)return;
