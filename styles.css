@@ -905,3 +905,13 @@ img.team-profile-target:hover {
   .shootout-event>span{grid-column:1/-1;font-size:.78rem;opacity:.8}
   .shootout-event>strong{text-align:left}
 }
+
+/* v32.18 · shootouts móviles + reinicio completo de partido */
+.danger{min-height:44px;border-radius:12px;padding:0 16px;font-weight:900;background:rgba(184,25,36,.16);color:#ffb8be;border:1px solid rgba(219,57,67,.55)}
+.danger:hover{background:rgba(184,25,36,.28);color:#fff}
+#mobileShootoutBtn{grid-column:1/-1;min-height:52px}
+#mobileResetWholeMatch,#resetWholeMatch{margin-top:10px}
+@media(max-width:900px){
+  #shootoutPanel #addShootoutAttempt:not([hidden]){display:block!important;width:100%!important;min-height:52px!important}
+  #mobileShootoutBtn:not([hidden]){display:block!important;width:100%!important}
+}

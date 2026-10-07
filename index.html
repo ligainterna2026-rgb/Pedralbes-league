@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-16" />
+  <link rel="stylesheet" href="styles.css?v=32-18" />
 </head>
 <body>
   <header class="topbar">
@@ -244,6 +244,7 @@
             <button id="mobileActaBtn" class="ghost" type="button">📋 Ver acta</button>
             <button id="mobileStreamBtn" class="ghost" type="button">▶ Streaming</button>
             <button id="mobileFinishMatch" class="secondary" type="button">🏁 Finalizar</button>
+            <button id="mobileShootoutBtn" class="primary" type="button" hidden>🥅 Gestionar shootouts</button>
           </div>
           <div id="mobileAdminTimeJump" class="mobile-admin-jump admin-only-block" hidden>
             <strong>⚙️ Ir a un minuto</strong>
@@ -252,6 +253,7 @@
               <label>Segundo<input id="mobileJumpSecond" type="number" min="0" max="59" value="0"></label>
             </div>
             <button id="mobileApplyMatchTime" class="ghost full" type="button">Aplicar tiempo</button>
+            <button id="mobileResetWholeMatch" class="danger full" type="button">🧹 Reiniciar partido completo</button>
           </div>
         </div>
         <div id="mobileLiveToast" class="mobile-live-toast" hidden aria-live="polite"><span id="mobileLiveToastText"></span><button id="mobileToastUndo" type="button">Deshacer</button></div>
@@ -274,6 +276,7 @@
               <label for="jumpSecond">Segundo<input id="jumpSecond" type="number" min="0" max="59" value="0"></label>
             </div>
             <button id="applyMatchTime" class="ghost full" type="button">Aplicar tiempo</button>
+            <button id="resetWholeMatch" class="danger full" type="button">🧹 Reiniciar partido completo</button>
           </div>
         </aside>
         <section class="score-card">
@@ -524,6 +527,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-16"></script>
+  <script src="app.js?v=32-18"></script>
 </body>
 </html>

@@ -864,6 +864,8 @@ function renderMobileReferee(f,s,editable){
   const adminJump=$('#mobileAdminTimeJump');if(adminJump)adminJump.hidden=!isAdmin();
   if(isAdmin()&&document.activeElement!==$('#mobileJumpMinute')&&document.activeElement!==$('#mobileJumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#mobileJumpMinute').value=Math.floor(elapsed/60);$('#mobileJumpSecond').value=elapsed%60}
   const canCorrectFinished=s.finished&&isAdmin();$('#mobileHomeGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileAwayGoal').disabled=s.finished&&!canCorrectFinished;$('#mobileUndoGoal').disabled=!s.events?.length||(s.finished&&!canCorrectFinished);$('#mobileFinishMatch').disabled=!!s.finished;
+  const mobileShootoutBtn=$('#mobileShootoutBtn');if(mobileShootoutBtn){const tied=Number(s.homeScore)===Number(s.awayScore),winner=shootoutWinnerSide(s);mobileShootoutBtn.hidden=!(editable&&tied&&!winner&&(s.shootoutActive||s.finished||(s.shootoutEvents||[]).length));mobileShootoutBtn.disabled=!editable||!!winner;}
+  const mobileResetWhole=$('#mobileResetWholeMatch');if(mobileResetWhole)mobileResetWhole.hidden=!isAdmin();
   $('#mobileMvpBtn').textContent=s.mvp?`⭐ MVP · ${s.mvp}`:'⭐ Elegir MVP';
   const actaOpen=view.classList.contains('mobile-acta-open');
   if($('#mobileQuickActaBtn'))$('#mobileQuickActaBtn').textContent=actaOpen?'✕ Cerrar acta':'📋 Ver acta';
@@ -879,22 +881,25 @@ function renderShootoutPanel(f,s,editable){
   const sc=shootoutScore(s),winner=shootoutWinnerSide(s),next=nextShootoutSide(s),nextTeam=teams[f[next]]?.name;
   summary.innerHTML=`<strong>${sc.home}–${sc.away}</strong><span>${winner?`🏆 ${teamProfileInline(f[winner])} gana los shootouts`:`${sc.homeAttempts<3||sc.awayAttempts<3?'Serie inicial: 3 lanzamientos por equipo':`Muerte súbita · siguiente: ${escapeHtml(nextTeam)}`}`}</span>`;
   list.innerHTML=(s.shootoutEvents||[]).length?(s.shootoutEvents||[]).map((e,i)=>`<div class="shootout-event ${e.scored?'scored':'missed'}"><span>${i+1}. ${e.suddenDeath?'🔥 Muerte súbita · ':''}${teamProfileInline(f[e.side])}</span><strong>${e.scored?'✅':'❌'} ${playerProfileButton(e.player)}</strong>${editable&&!s.finished?`<button class="ghost compact-btn" type="button" data-delete-shootout="${e.id}">Eliminar</button>`:''}</div>`).join(''):'<div class="muted">Todavía no se ha lanzado ningún shootout.</div>';
-  addBtn.hidden=!editable||!!winner||s.finished;addBtn.disabled=!editable||!!winner||s.finished;addBtn.textContent=`🥅 Añadir lanzamiento · ${nextTeam}`;
+  const canManageShootout=editable&&!winner;addBtn.hidden=!canManageShootout;addBtn.disabled=!canManageShootout;addBtn.style.display=canManageShootout?'':'none';addBtn.textContent=`🥅 Añadir lanzamiento · ${nextTeam}`;
   $$('#shootoutList [data-delete-shootout]').forEach(b=>b.addEventListener('click',()=>{const cur=getMatchState();cur.shootoutEvents=(cur.shootoutEvents||[]).filter(x=>String(x.id)!==String(b.dataset.deleteShootout));saveMatchState(cur);renderLive();refreshDataViews()}));
 }
 function openShootoutAttempt(){
   if(!requireMatchEdit())return;const f=findFixture(live.matchId),s=getMatchState();if(!f||Number(s.homeScore)!==Number(s.awayScore)||shootoutWinnerSide(s))return;
+  // Si es un empate antiguo que ya estaba marcado como finalizado, al gestionar
+  // el primer shootout lo reabrimos hasta resolver el desempate.
+  if(s.finished){s.finished=false;s.started=false;s.shootoutActive=true;saveMatchState(s);}
   const side=nextShootoutSide(s),teamKey=f[side];$('#shootoutSide').value=side;$('#shootoutAttemptTitle').textContent=`Shootout · ${teams[teamKey].name}`;$('#shootoutPlayer').innerHTML=playersOf(teamKey).map(p=>`<option>${escapeHtml(p)}</option>`).join('');$('#shootoutAttemptDialog').showModal();
 }
 function commitShootoutAttempt(player,scored){
   const f=findFixture(live.matchId),s=getMatchState();if(!f||!player||!requireMatchEdit())return;const side=$('#shootoutSide').value,sc=shootoutScore(s),suddenDeath=sc.homeAttempts>=3&&sc.awayAttempts>=3;
-  s.shootoutActive=true;s.shootoutEvents=s.shootoutEvents||[];s.shootoutEvents.push({id:Date.now(),side,teamKey:f[side],player,scored:!!scored,suddenDeath});saveMatchState(s);$('#shootoutAttemptDialog').close();renderLive();refreshDataViews();
+  s.finished=false;s.started=false;s.shootoutActive=true;s.shootoutEvents=s.shootoutEvents||[];s.shootoutEvents.push({id:Date.now(),side,teamKey:f[side],player,scored:!!scored,suddenDeath});saveMatchState(s);$('#shootoutAttemptDialog').close();renderLive();refreshDataViews();
 }
 function renderLive(){
   const f=findFixture(live.matchId),s=getMatchState(),editable=canManageMatch(live.matchId);if(!f)return;
   $('#liveEyebrow').textContent=s.finished?'ACTA DEL PARTIDO':(editable?'MODO ÁRBITRO':'EN DIRECTO');$('#liveDescription').textContent=s.finished?'Consulta el resultado, los goles, las asistencias y el MVP. El administrador puede corregir el acta incluso después de finalizar el partido.':(editable?'Tienes permisos para gestionar este partido.':'Sigue el marcador, el tiempo y los eventos. Solo el árbitro asignado puede editar.');
   $('#liveHalfControls').hidden=!editable;$('#liveTimerActions').hidden=!editable;$('#liveEventActions').hidden=!editable;$('#liveMvpPanel').hidden=false;$('#mvpSelect').hidden=!editable;$('#saveMvp').hidden=!editable;$$('.live-editor-control').forEach(el=>el.hidden=!editable);
-  const adminTimeJump=$('#adminTimeJump');if(adminTimeJump)adminTimeJump.hidden=!isAdmin();
+  const adminTimeJump=$('#adminTimeJump');if(adminTimeJump)adminTimeJump.hidden=!isAdmin();const resetWhole=$('#resetWholeMatch');if(resetWhole)resetWhole.hidden=!isAdmin();
   if(isAdmin()&&document.activeElement!==$('#jumpMinute')&&document.activeElement!==$('#jumpSecond')){const elapsed=Math.max(0,Math.min(1200,1200-live.remaining));$('#jumpMinute').value=Math.floor(elapsed/60);$('#jumpSecond').value=elapsed%60;}
   $('#timer').textContent=timeText(live.remaining);$('#homeName').textContent=teams[f.home].name;markTeamProfileTarget($('#homeName'),f.home);$('#awayName').textContent=teams[f.away].name;markTeamProfileTarget($('#awayName'),f.away);$('#homeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#homeLogo'),f.home);$('#awayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#awayLogo'),f.away);$('#homeScore').textContent=s.homeScore;$('#awayScore').textContent=s.awayScore;
   $('#half1Btn').classList.toggle('active',live.half===1);$('#half2Btn').classList.toggle('active',live.half===2);const liveStatus=s.finished?'Partido finalizado':(s.started?`● EN JUEGO · ${live.half}ª parte`:availabilityStatus(live.matchId));const shotText=shootoutSummary(s,f);$('#liveMatchLabel').textContent=liveStatus+(shotText?` · ${shotText}`:'')+(editable?' · Edición habilitada':' · Solo lectura');updateSpecialRule();renderMobileReferee(f,s,editable);renderShootoutPanel(f,s,editable);
@@ -906,6 +911,19 @@ function renderLive(){
   ['#startTimer','#pauseTimer','#resetTimer','#half1Btn','#half2Btn','#homeGoal','#awayGoal','#undoGoal','#finishMatch','#mvpSelect','#saveMvp'].forEach(sel=>{const el=$(sel);if(!el)return;const adminCanCorrectFinished=s.finished&&isAdmin()&&(sel==='#homeGoal'||sel==='#awayGoal'||sel==='#undoGoal');el.disabled=!editable||((sel==='#finishMatch')&&s.finished)||((sel==='#homeGoal'||sel==='#awayGoal'||sel==='#undoGoal')&&s.finished&&!adminCanCorrectFinished)});
 }
 function stopTimer(){live.running=false;if(live.interval)clearInterval(live.interval);live.interval=null}
+async function resetWholeMatch(){
+  if(!isAdmin())return;
+  const f=findFixture(live.matchId);if(!f)return;
+  if(!confirm(`¿Reiniciar completamente ${teams[f.home].name} vs ${teams[f.away].name}? Se borrarán marcador, goles, asistencias, MVP, participantes y shootouts. La fecha y el árbitro asignado se mantienen.`))return;
+  stopTimer();
+  live.half=1;live.remaining=1200;live.running=false;
+  const clean=defaultMatchState();clean.liveHalf=1;clean.clockSeconds=1200;clean.clockRunning=false;
+  saveMatchState(clean);
+  restoreLiveClockFromState(live.matchId);
+  renderLive();refreshDataViews();
+  if(document.body.dataset.view==='admin')renderAdmin();
+  alert('Partido reiniciado. Ya está listo para empezar de nuevo.');
+}
 function requireMatchEdit(){if(!canManageMatch(live.matchId)){alert('Este partido está en modo solo lectura. Solo el administrador o el árbitro asignado puede editarlo.');return false}return true}
 $('#startTimer').addEventListener('click',()=>{if(!requireMatchEdit()||live.running||live.remaining<=0)return;const s=getMatchState();s.started=true;live.running=true;saveMatchState(s);renderStandings();live.interval=setInterval(()=>{live.remaining--;renderLive();if(live.remaining<=0){stopTimer();const current=getMatchState();saveMatchState(current)}},1000)});
 $('#pauseTimer').addEventListener('click',()=>{if(!requireMatchEdit())return;stopTimer();const s=getMatchState();saveMatchState(s);renderLive()});
@@ -960,6 +978,9 @@ $('#finishMatch').addEventListener('click',()=>{if(!requireMatchEdit())return;co
   s.finished=true;s.started=false;s.shootoutActive=false;saveMatchState(s);renderLive();refreshDataViews()});
 $('#saveMvp').addEventListener('click',()=>{if(!requireMatchEdit())return;const v=$('#mvpSelect').value;if(!v)return;const s=getMatchState();s.mvp=v;saveMatchState(s);renderLive();refreshDataViews()});
 $('#addShootoutAttempt')?.addEventListener('click',openShootoutAttempt);
+$('#mobileShootoutBtn')?.addEventListener('click',()=>{openShootoutAttempt()});
+$('#resetWholeMatch')?.addEventListener('click',resetWholeMatch);
+$('#mobileResetWholeMatch')?.addEventListener('click',resetWholeMatch);
 $('#shootoutAttemptForm')?.addEventListener('submit',e=>{if(e.submitter?.value==='cancel')return;e.preventDefault();commitShootoutAttempt($('#shootoutPlayer').value,e.submitter?.value==='goal')});
 
 function openMobileMvp(){
