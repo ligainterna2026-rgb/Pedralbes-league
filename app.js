@@ -374,7 +374,7 @@ function renderRounds(){
   $$('#rounds [data-match-primary]').forEach(b=>b.addEventListener('click',()=>{const f=findFixture(b.dataset.matchPrimary),state=f?getStateFor(f.id):null;if(!f)return;(state?.finished||state?.started)?openLiveMatch(f.id):openAvailability(f.id)}));
   bindFixtureQuickActions($('#rounds'));
 }
-function openAvailability(matchId){if(!isAdmin())return;if(!findFixture(matchId))return;$('#availabilityMatch').value=matchId;renderAvailability();navigate('disponibilidad')}
+function openAvailability(matchId){if(!isAdmin())return;navigate('admin')}
 
 function playerStats(){
   const stats={}; allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,realGoals:0,assists:0,mvps:0});
@@ -1043,7 +1043,9 @@ function availabilityVoteCounts(f,data,optId){
   return {home:countTeam(f.home),away:countTeam(f.away)};
 }
 function renderAvailability(){
-  const matchId=$('#availabilityMatch').value,f=findFixture(matchId),data=availabilityData(matchId);if(!f)return;
+  const matchSelect=$('#availabilityMatch');
+  if(!matchSelect)return;
+  const matchId=matchSelect.value,f=findFixture(matchId),data=availabilityData(matchId);if(!f)return;
   const adminEditor=$('#availabilityAdminEditor');
   const adminMode=isAdmin();
   adminEditor.hidden=!adminMode;
@@ -1440,11 +1442,9 @@ function renderReminderSettings(){
 $('#saveReminderSettings')?.addEventListener('click',()=>{
   if(!isAdmin()){alert('Solo el administrador puede configurar los recordatorios.');return}
   const settings={
-    availabilityEnabled:$('#availabilityReminderEnabled').checked,
-    availabilityCadence:$('#availabilityReminderCadence').value,
-    matchEnabled:$('#matchReminderEnabled').checked,
-    match24:$('#matchReminder24').checked,
-    match2:$('#matchReminder2').checked
+    matchEnabled:$('#matchReminderEnabled')?.checked||false,
+    match24:$('#matchReminder24')?.checked||false,
+    match2:$('#matchReminder2')?.checked||false
   };
   store.set('league:reminders',settings);
   $('#reminderSaved').textContent='Configuración de recordatorios guardada para la versión online.';
