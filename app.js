@@ -732,9 +732,19 @@ function renderHomeRoundHighlights(){
   const round=Number(select.value||selected),rows=homeRoundPlayerStats(round);
   $('#homeHighlightsTitle').textContent=`Jugadores destacados · Jornada ${round}`;
   const best=(field)=>rows.slice().sort((a,b)=>b[field]-a[field]||b.realGoals-a.realGoals||a.name.localeCompare(b.name,'es'))[0];
-  const topG=best('goals'),topA=best('assists'),topM=best('mvps');
-  const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias'],['#homeTopMvp','#homeTopMvpMeta',topM,'mvps','⭐','MVP']];
+  const topG=best('goals'),topA=best('assists');
+  const roundMvps=fixtures
+    .filter(f=>Number(f.round)===round)
+    .map(f=>({fixture:f,state:getStateFor(f.id)}))
+    .filter(x=>x.state?.mvp)
+    .map(x=>({name:x.state.mvp,match:`${teams[x.fixture.home].name} vs ${teams[x.fixture.away].name}`}));
+  const topItems=[['#homeTopScorer','#homeTopScorerMeta',topG,'goals','⚽','goles'],['#homeTopAssist','#homeTopAssistMeta',topA,'assists','🅰️','asistencias']];
   topItems.forEach(([btnSel,metaSel,p,field,icon,label])=>{const n=p?.[field]||0,btn=$(btnSel);btn.innerHTML=n&&p?`${playerAvatarHtml(p.name,'home-stat-avatar')}<span>${escapeHtml(p.name)}</span>`:'<span class="home-stat-empty">—</span>';btn.disabled=!n;if(n)btn.dataset.playerProfile=p.name;else delete btn.dataset.playerProfile;$(metaSel).textContent=field==='goals'&&p?`${icon} ${n} competición · 🥅 ${p.realGoals} reales`:`${icon} ${n} ${label}`});
+  [['#homeMvp1','#homeMvp1Meta',roundMvps[0]],['#homeMvp2','#homeMvp2Meta',roundMvps[1]]].forEach(([btnSel,metaSel,mvp],idx)=>{
+    const btn=$(btnSel),meta=$(metaSel);if(!btn||!meta)return;
+    if(mvp){btn.innerHTML=`${playerAvatarHtml(mvp.name,'home-stat-avatar')}<span>${escapeHtml(mvp.name)}</span>`;btn.disabled=false;btn.dataset.playerProfile=mvp.name;meta.textContent=`⭐ MVP · Partido ${idx+1}`;}
+    else{btn.innerHTML='<span class="home-stat-empty">—</span>';btn.disabled=true;delete btn.dataset.playerProfile;meta.textContent=`⭐ MVP · Partido ${idx+1}`;}
+  });
 }
 function renderHomeDashboard(){
   const finished=fixtures.filter(f=>getStateFor(f.id).finished).slice().reverse().slice(0,3),pending=fixtures.filter(f=>!getStateFor(f.id).finished).slice(0,3);
@@ -1241,19 +1251,44 @@ function renderNews(){
       <div class="news-team"><img src="${teams.ordago.logo}" alt=""><strong>Ordago FC</strong></div>
     </section>
     <section class="news-feature-grid">
-      <button class="news-feature-main" type="button" data-news-image="${main.image}">
+      <button class="news-feature-main" type="button" data-news-index="0">
         <img src="${main.image}" alt="${escapeHtml(main.title)}" loading="lazy"><span class="news-overlay"></span>
         <div class="news-feature-copy"><span class="news-tag">CRÓNICA DEL PARTIDO</span><h2>${escapeHtml(selected.headline)}</h2><p>${escapeHtml(selected.summary)}</p><b>Ver página completa →</b></div>
       </button>
-      <button class="news-feature-side" type="button" data-news-image="${secondary.image}">
+      <button class="news-feature-side" type="button" data-news-index="1">
         <img src="${secondary.image}" alt="${escapeHtml(secondary.title)}" loading="lazy"><span class="news-overlay"></span>
         <div class="news-feature-copy"><span class="news-tag gold">MVP</span><h3>${escapeHtml(secondary.title)}</h3><p>${escapeHtml(secondary.text)}</p><b>Leer →</b></div>
       </button>
     </section>
     <section class="news-grid">
-      ${selected.pages.slice(2).map(page=>`<button class="news-card" type="button" data-news-image="${page.image}"><img src="${page.image}" alt="${escapeHtml(page.title)}" loading="lazy"><div class="news-card-copy"><span class="news-tag">${escapeHtml(page.tag)}</span><h3>${escapeHtml(page.title)}</h3><p>${escapeHtml(page.text)}</p><b>Abrir página →</b></div></button>`).join('')}
+      ${selected.pages.slice(2).map((page,index)=>`<button class="news-card" type="button" data-news-index="${index+2}"><img src="${page.image}" alt="${escapeHtml(page.title)}" loading="lazy"><div class="news-card-copy"><span class="news-tag">${escapeHtml(page.tag)}</span><h3>${escapeHtml(page.title)}</h3><p>${escapeHtml(page.text)}</p><b>Abrir página →</b></div></button>`).join('')}
     </section>`;
-  content.querySelectorAll('[data-news-image]').forEach(btn=>btn.addEventListener('click',()=>openNewsImage(btn.dataset.newsImage)));
+  activeNewsPages=selected.pages.slice();
+  content.querySelectorAll('[data-news-index]').forEach(btn=>btn.addEventListener('click',()=>openNewsImageByIndex(Number(btn.dataset.newsIndex))));
+}
+let activeNewsPages=[];
+let activeNewsPageIndex=-1;
+let newsTouchStartX=null;
+function updateNewsDialogImage(){
+  const page=activeNewsPages[activeNewsPageIndex],img=$('#newsDialogImage'),counter=$('#newsDialogCounter');
+  if(!page||!img)return;
+  img.alt=page.title||'Página del periódico de la liga';
+  img.onerror=()=>{img.alt='No se ha podido cargar esta página del periódico.'};
+  img.src=page.image;
+  if(counter)counter.textContent=`${activeNewsPageIndex+1} / ${activeNewsPages.length}`;
+  const prev=$('#newsPrev'),next=$('#newsNext');
+  if(prev)prev.disabled=activeNewsPages.length<2;
+  if(next)next.disabled=activeNewsPages.length<2;
+}
+function openNewsImageByIndex(index){
+  activeNewsPageIndex=Math.max(0,Math.min(activeNewsPages.length-1,Number(index)||0));
+  openNewsImage(activeNewsPages[activeNewsPageIndex]?.image||'');
+  updateNewsDialogImage();
+}
+function moveNewsImage(direction){
+  if(activeNewsPages.length<2)return;
+  activeNewsPageIndex=(activeNewsPageIndex+direction+activeNewsPages.length)%activeNewsPages.length;
+  updateNewsDialogImage();
 }
 let newsDialogHistoryOpen=false;
 let newsDialogClosing=false;
@@ -1310,9 +1345,25 @@ document.addEventListener('click',e=>{
 document.addEventListener('pointerup',e=>{
   if(e.target.closest?.('#closeNewsDialog')){e.preventDefault();e.stopPropagation();closeNewsImage();}
 },{passive:false});
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&$('#newsDialog')?.open){e.preventDefault();closeNewsImage();}
+document.addEventListener('click',e=>{
+  if(e.target.closest?.('#newsPrev')){e.preventDefault();e.stopPropagation();moveNewsImage(-1);}
+  if(e.target.closest?.('#newsNext')){e.preventDefault();e.stopPropagation();moveNewsImage(1);}
 });
+document.addEventListener('keydown',e=>{
+  if(!$('#newsDialog')?.open)return;
+  if(e.key==='Escape'){e.preventDefault();closeNewsImage();}
+  if(e.key==='ArrowLeft'){e.preventDefault();moveNewsImage(-1);}
+  if(e.key==='ArrowRight'){e.preventDefault();moveNewsImage(1);}
+});
+document.addEventListener('touchstart',e=>{
+  if(!$('#newsDialog')?.open)return;
+  newsTouchStartX=e.touches?.[0]?.clientX??null;
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(!$('#newsDialog')?.open||newsTouchStartX===null)return;
+  const end=e.changedTouches?.[0]?.clientX??newsTouchStartX,delta=end-newsTouchStartX;newsTouchStartX=null;
+  if(Math.abs(delta)>45)moveNewsImage(delta>0?-1:1);
+},{passive:true});
 
 async function hydrateIdealFiveFromSupabase(force=false){
   if(idealRemoteLoaded&&!force)return;
@@ -1457,7 +1508,7 @@ async function buildIdealShareCanvas(){
 
   // Header
   ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(0,0,1080,150);
-  ctx.fillStyle='#f5c76f';ctx.font='700 28px Arial';ctx.textAlign='left';ctx.fillText('LIGA INTERNA PEDRALBES',70,58);
+  ctx.fillStyle='#f5c76f';ctx.font='700 28px Arial';ctx.textAlign='left';ctx.fillText('PEDRALBES LEAGUE',70,58);
   ctx.fillStyle='#fff';ctx.font='900 74px Arial';ctx.fillText('5 IDEAL',70,118);
   ctx.textAlign='right';ctx.fillStyle='#f5c76f';ctx.font='700 34px Arial';ctx.fillText(`JORNADA ${round}`,1000,74);
   ctx.fillStyle='rgba(255,255,255,.82)';ctx.font='500 24px Arial';ctx.fillText('Formación oficial para compartir',1000,112);
@@ -1502,7 +1553,7 @@ async function buildIdealShareCanvas(){
     ctx.fillText(`A ${player.stats.assists}`,c.x+44,cardY+195);
   });
 
-  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='500 20px Arial';ctx.fillText('Exportado desde la web oficial de la Liga Interna Pedralbes',540,1315);
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='500 20px Arial';ctx.fillText('Exportado desde la web oficial de la Pedralbes League',540,1315);
   return canvas;
 }
 function canvasToBlob(canvas){return new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}
@@ -1518,7 +1569,7 @@ async function shareIdealAsImage(){
     const file=new File([blob],`5-ideal-jornada-${round}.png`,{type:'image/png'});
     const canNativeShare=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));
     if(canNativeShare){
-      await navigator.share({files:[file],title:`5 ideal · Jornada ${round}`,text:`5 ideal de la Jornada ${round} · Liga Interna Pedralbes`});
+      await navigator.share({files:[file],title:`5 ideal · Jornada ${round}`,text:`5 ideal de la Jornada ${round} · Pedralbes League`});
       if(msg)msg.textContent='✓ Imagen lista y compartida.';
       return;
     }

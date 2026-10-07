@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
-  <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-28" />
+  <title>Pedralbes League</title>
+  <link rel="stylesheet" href="styles.css?v=32-29" />
 </head>
 <body>
   <header class="topbar">
     <button class="brand" data-go="inicio" aria-label="Ir al inicio">
       <img src="assets/logo-liga.jpeg" alt="Logo de la liga" class="brand-logo" />
       <div class="brand-copy">
-        <strong>Liga Interna Pedralbes</strong>
+        <strong>Pedralbes League</strong>
         <span>2026 · Fútbol sala</span>
       </div>
     </button>
@@ -50,7 +50,7 @@
       <div class="hero">
         <div class="hero-copy">
           <span class="eyebrow">FÚTBOL SALA · TEMPORADA 2026</span>
-          <h1 class="league-main-title">Liga Interna Pedralbes 2026</h1>
+          <h1 class="league-main-title">Pedralbes League</h1>
           <p class="league-main-subtitle">Resultados, estadísticas y toda la competición en directo.</p>
           <div class="hero-actions">
             <button class="primary" data-go="jornadas">Ver jornadas</button>
@@ -91,7 +91,8 @@
         <div class="stats-cards">
           <div><span class="stat-label">Máximo goleador</span><button id="homeTopScorer" class="player-name-button stat-player" type="button">—</button><small id="homeTopScorerMeta">0 goles</small></div>
           <div><span class="stat-label">Máximo asistente</span><button id="homeTopAssist" class="player-name-button stat-player" type="button">—</button><small id="homeTopAssistMeta">0 asistencias</small></div>
-          <div><span class="stat-label">Más MVP</span><button id="homeTopMvp" class="player-name-button stat-player" type="button">—</button><small id="homeTopMvpMeta">0 MVP</small></div>
+          <div><span class="stat-label">MVP · Partido 1</span><button id="homeMvp1" class="player-name-button stat-player" type="button">—</button><small id="homeMvp1Meta">⭐ MVP · Partido 1</small></div>
+          <div><span class="stat-label">MVP · Partido 2</span><button id="homeMvp2" class="player-name-button stat-player" type="button">—</button><small id="homeMvp2Meta">⭐ MVP · Partido 2</small></div>
         </div>
       </section>
 
@@ -510,12 +511,15 @@
 
   <dialog id="newsDialog" class="news-dialog">
     <button id="closeNewsDialog" class="news-dialog-close" type="button" aria-label="Cerrar foto">✕</button>
+    <button id="newsPrev" class="news-dialog-nav news-dialog-prev" type="button" aria-label="Imagen anterior">‹</button>
     <img id="newsDialogImage" alt="Página del periódico de la liga">
+    <button id="newsNext" class="news-dialog-nav news-dialog-next" type="button" aria-label="Imagen siguiente">›</button>
+    <div id="newsDialogCounter" class="news-dialog-counter">1 / 1</div>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-28"></script>
+  <script src="app.js?v=32-29"></script>
 
 </body>
 </html>
