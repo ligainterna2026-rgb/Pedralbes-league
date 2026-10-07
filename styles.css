@@ -992,3 +992,18 @@ img.team-profile-target:hover {
 #view-inicio .home-highlight-panel .stats-cards{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:900px){#view-inicio .home-highlight-panel .stats-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.news-dialog-nav{width:46px;height:46px;font-size:1.8rem}.news-dialog-prev{left:8px}.news-dialog-next{right:8px}#view-inicio .home-highlight-panel .stats-cards{grid-template-columns:1fr}}
+
+/* v32.30 · MVPs de la jornada en una sola casilla */
+#view-inicio .home-highlight-panel .stats-cards{grid-template-columns:1fr 1fr 1.35fr}
+.home-mvps-card{display:grid!important;align-content:start;gap:10px}
+.home-mvps-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.home-mvps-pair>div{display:grid;justify-items:center;gap:5px;padding:8px;border-radius:14px;background:rgba(255,255,255,.035)}
+.home-mvps-pair .stat-player{width:100%}
+@media(max-width:900px){
+  #view-inicio .home-highlight-panel .stats-cards{grid-template-columns:1fr 1fr}
+  .home-mvps-card{grid-column:1/-1}
+}
+@media(max-width:560px){
+  #view-inicio .home-highlight-panel .stats-cards{grid-template-columns:1fr}
+  .home-mvps-pair{grid-template-columns:1fr 1fr}
+}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Pedralbes League</title>
-  <link rel="stylesheet" href="styles.css?v=32-29" />
+  <link rel="stylesheet" href="styles.css?v=32-30" />
 </head>
 <body>
   <header class="topbar">
@@ -91,8 +91,7 @@
         <div class="stats-cards">
           <div><span class="stat-label">Máximo goleador</span><button id="homeTopScorer" class="player-name-button stat-player" type="button">—</button><small id="homeTopScorerMeta">0 goles</small></div>
           <div><span class="stat-label">Máximo asistente</span><button id="homeTopAssist" class="player-name-button stat-player" type="button">—</button><small id="homeTopAssistMeta">0 asistencias</small></div>
-          <div><span class="stat-label">MVP · Partido 1</span><button id="homeMvp1" class="player-name-button stat-player" type="button">—</button><small id="homeMvp1Meta">⭐ MVP · Partido 1</small></div>
-          <div><span class="stat-label">MVP · Partido 2</span><button id="homeMvp2" class="player-name-button stat-player" type="button">—</button><small id="homeMvp2Meta">⭐ MVP · Partido 2</small></div>
+          <div class="home-mvps-card"><span class="stat-label">MVPs de la jornada</span><div class="home-mvps-pair"><div><button id="homeMvp1" class="player-name-button stat-player" type="button">—</button><small id="homeMvp1Meta">⭐ MVP · Partido 1</small></div><div><button id="homeMvp2" class="player-name-button stat-player" type="button">—</button><small id="homeMvp2Meta">⭐ MVP · Partido 2</small></div></div></div>
         </div>
       </section>
 
@@ -519,7 +518,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-29"></script>
+  <script src="app.js?v=32-30"></script>
 
 </body>
 </html>
