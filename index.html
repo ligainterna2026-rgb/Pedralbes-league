@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#720f17" />
   <title>Liga Interna Pedralbes 2026</title>
-  <link rel="stylesheet" href="styles.css?v=32-18" />
+  <link rel="stylesheet" href="styles.css?v=32-19" />
 </head>
 <body>
   <header class="topbar">
@@ -31,7 +31,6 @@
       <button class="nav-link" data-view="jugadores"><span class="nav-icon">🏅</span><span>Ranking general</span></button>
       <button class="nav-link" data-view="premios"><span class="nav-icon">5️⃣</span><span>5 ideal</span></button>
       <span class="nav-section-label">Partidos</span>
-      <button class="nav-link admin-only" data-view="disponibilidad" hidden><span class="nav-icon">✅</span><span>Disponibilidad</span></button>
       <button class="nav-link" data-view="directo"><span class="nav-icon">🔴</span><span>En directo</span></button>
       <button class="nav-link" data-view="streaming"><span class="nav-icon">▶️</span><span>Streaming</span></button>
       <span class="nav-section-label">Más</span>
@@ -67,8 +66,7 @@
             <span class="next-vs">VS</span>
             <div class="next-club"><img id="nextAwayLogo" alt="Escudo visitante"><strong id="nextAwayName">—</strong></div>
           </div>
-          <div id="nextMatchStatus" class="next-match-status">Fecha por decidir</div>
-          <button id="startNextMatch" class="primary full">📅 Gestionar disponibilidad</button>
+          <div id="nextMatchStatus" class="next-match-status">Fecha por decidir</div><button id="startNextMatch" class="primary full" hidden></button>
         </div>
       </div>
 
@@ -300,7 +298,7 @@
       </div>
       <section id="matchParticipantsPanel" class="panel" hidden style="margin-top:18px">
         <div class="panel-head"><div><span class="eyebrow">ACTA</span><h2>Jugadores que participaron</h2><p>El Admin marca quién jugó. Goleadores, asistentes y MVP se marcan automáticamente.</p></div></div>
-        <div id="matchParticipants" class="availability-vote-grid"></div>
+        <div class="notice compact attendance-note">La asistencia se confirma aquí, desde el acta del partido. Solo el administrador puede marcar o desmarcar participantes.</div><div id="matchParticipants" class="availability-vote-grid"></div>
         <div id="matchParticipantsSummary" class="summary-box"></div>
       </section>
     </section>
@@ -337,27 +335,6 @@
         <div id="streamArchive" class="empty-state">Todavía no hay partidos grabados.</div>
       </section>
     </section>
-
-    <section class="view" id="view-disponibilidad">
-      <button id="availabilityBack" class="ghost back-btn" type="button">← Volver</button>
-      <div class="page-head"><div><span class="eyebrow">ORGANIZACIÓN</span><h1>Disponibilidad</h1><p>Apartado exclusivo de administración para gestionar fechas y disponibilidad de los jugadores.</p></div></div>
-      <div class="panel availability-panel">
-        <label for="availabilityMatch">Partido</label>
-        <select id="availabilityMatch"></select>
-
-        <section id="availabilityAdminEditor" class="availability-admin-editor" hidden>
-          <div class="panel-head"><div><span class="eyebrow">SOLO ADMIN</span><h2>Proponer fechas</h2><p>Elige entre 1 y 3 fechas concretas y su hora. Puedes programarlas con varias semanas de antelación y marcar manualmente la disponibilidad de los jugadores.</p></div></div>
-          <div id="availabilityOptionEditors" class="availability-option-editors"></div>
-          <div class="availability-admin-actions"><button id="saveAvailabilityOptions" class="secondary" type="button">Guardar fechas</button><button id="clearAvailabilityOptions" class="ghost" type="button">Borrar fechas</button></div>
-          <div id="availabilityAdminMsg" class="saved-msg"></div>
-        </section>
-
-        <div id="availabilityOptions" class="availability-options"></div>
-        <div id="availabilityGrid" class="availability-vote-grid"></div>
-        <div id="availabilitySummary" class="summary-box"></div>
-      </div>
-    </section>
-
     <section class="view" id="view-premios">
       <div class="page-head"><div><span class="eyebrow">ELECCIÓN MANUAL</span><h1>5 ideal de la jornada</h1><p>Lo decide el Admin. Cada jugador muestra sus goles reales y asistencias de esa jornada.</p></div></div>
       <div class="panel ideal-panel"><label for="idealRound">Jornada</label><select id="idealRound"></select><div id="idealFive" class="ideal-five"></div><div class="ideal-actions"><button id="saveIdeal" class="primary">Guardar 5 ideal</button><button id="shareIdeal" class="secondary" type="button">↗ Compartir como imagen</button></div><div id="idealSaved" class="saved-msg"></div><p class="muted ideal-share-hint">La imagen incluye la formación, las fotos de perfil y el escudo del equipo. En móvil compatible podrás compartirla directamente; si no, se descargará como PNG.</p></div>
@@ -412,7 +389,6 @@
         <button type="button" data-admin-jump="adminUsersPanel"><span>👤</span><strong>Usuarios</strong><small>Buscar y editar cuentas</small></button>
         <button type="button" data-admin-jump="adminFixturesPanel"><span>📅</span><strong>Partidos</strong><small>Editar calendario</small></button>
         <button type="button" data-admin-jump="adminRefereesPanel"><span>🟨</span><strong>Árbitros</strong><small>Asignar partidos</small></button>
-        <button type="button" data-go="disponibilidad"><span>✅</span><strong>Disponibilidad</strong><small>Gestionar fechas</small></button>
         <button type="button" data-go="premios"><span>⭐</span><strong>5 ideal</strong><small>Elegir la jornada</small></button>
       </div>
       <details class="admin-roles-details">
@@ -437,7 +413,7 @@
       </section>
       <section id="adminFixturesPanel" class="panel admin-fixtures-panel admin-section-card">
         <div class="panel-head"><div><span class="eyebrow">CALENDARIO</span><h2>Editar jornadas y partidos</h2><p>Puedes mover un partido de jornada, cambiar local/visitante, añadir encuentros o eliminarlos. El equipo que descansa se calcula automáticamente según los equipos que juegan.</p></div><div class="fixture-editor-toolbar"><button id="addFixture" class="secondary" type="button">+ Añadir partido</button><button id="resetFixtures" class="ghost" type="button">Restaurar calendario</button></div></div>
-        <div class="notice compact">Si cambias los equipos de un partido que ya tiene resultado, goles, disponibilidad o vídeo, la web te pedirá confirmación y borrará esos datos asociados para evitar estadísticas mezcladas.</div>
+        <div class="notice compact">Si cambias los equipos de un partido que ya tiene resultado, goles o vídeo, la web te pedirá confirmación y borrará esos datos asociados para evitar estadísticas mezcladas.</div>
         <div id="fixtureEditor" class="fixture-editor"></div>
       </section>
       <section id="adminRefereesPanel" class="panel admin-ref-panel admin-section-card">
@@ -448,12 +424,6 @@
         <div class="panel-head"><div><span class="eyebrow">🔔 RECORDATORIOS</span><h2>Avisos automáticos</h2><p>Configura los avisos que recibirán los jugadores cuando la web esté publicada.</p></div></div>
         <div class="reminder-grid">
           <article class="reminder-card">
-            <h3>📅 Disponibilidad</h3>
-            <p>Recordar a los jugadores de los dos equipos que todavía no hayan votado cuándo pueden jugar.</p>
-            <label class="reminder-option"><input id="availabilityReminderEnabled" type="checkbox"> Activar recordatorio</label>
-            <label class="reminder-select"><span>Frecuencia</span><select id="availabilityReminderCadence"><option value="24">Cada 24 horas</option><option value="48">Cada 48 horas</option><option value="72">Cada 72 horas</option></select></label>
-          </article>
-          <article class="reminder-card">
             <h3>⏰ Partido confirmado</h3>
             <p>Avisar a los jugadores de ambos equipos antes de un partido cuya fecha y hora ya estén confirmadas.</p>
             <label class="reminder-option"><input id="matchReminderEnabled" type="checkbox"> Activar recordatorio</label>
@@ -463,7 +433,7 @@
         </div>
         <div class="reminder-actions"><button id="saveReminderSettings" class="secondary" type="button">Guardar configuración</button></div>
         <div id="reminderSaved" class="saved-msg"></div>
-        <div class="reminder-preview"><strong>Cuando esté online:</strong> los avisos se enviarán únicamente a usuarios registrados vinculados a jugadores. El sistema podrá recordar la disponibilidad a quien no haya votado y avisar del partido cuando tenga fecha confirmada. En esta versión local solo se guarda la configuración, todavía no se envían correos reales.</div>
+        <div class="reminder-preview"><strong>Cuando esté online:</strong> los avisos se enviarán únicamente a usuarios registrados vinculados a jugadores. El sistema podrá avisar del partido cuando tenga fecha confirmada. En esta versión local solo se guarda la configuración, todavía no se envían correos reales.</div>
       </section>
       <div class="notice">Esta versión sigue siendo local. La estructura de permisos ya está simulada; para activarla online habrá que conectar Supabase Auth y la base de datos incluida en el paquete.</div>
     </section>
@@ -527,6 +497,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
-  <script src="app.js?v=32-18"></script>
+  <script src="app.js?v=32-19"></script>
 </body>
 </html>

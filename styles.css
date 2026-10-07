@@ -915,3 +915,6 @@ img.team-profile-target:hover {
   #shootoutPanel #addShootoutAttempt:not([hidden]){display:block!important;width:100%!important;min-height:52px!important}
   #mobileShootoutBtn:not([hidden]){display:block!important;width:100%!important}
 }
+
+/* v32.19 · disponibilidad retirada de la web; asistencia solo desde el acta */
+.attendance-note{margin:0 0 12px}

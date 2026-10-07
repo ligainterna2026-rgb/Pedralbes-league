@@ -164,7 +164,7 @@ function canEditPlayerPhoto(name){return isAdmin() || (isPlayer() && linkedPlaye
 function canVoteFor(name,matchId){return isAdmin()}
 
 let viewHistory=[];
-const RESTORABLE_VIEWS=new Set(['inicio','jornadas','clasificacion','equipos','goleadores','asistencias','mvps','jugadores','streaming','disponibilidad','premios','directo','cuenta','acceso','admin']);
+const RESTORABLE_VIEWS=new Set(['inicio','jornadas','clasificacion','equipos','goleadores','asistencias','mvps','jugadores','streaming','premios','directo','cuenta','acceso','admin']);
 let pendingRestoredView=sessionStorage.getItem('league:lastView')||'inicio';
 let restoredViewOnce=false;
 function rememberView(view){if(RESTORABLE_VIEWS.has(view))sessionStorage.setItem('league:lastView',view)}
@@ -175,7 +175,8 @@ function restoreLastViewAfterAuth(){
   history.replaceState({leagueInternal:true,leagueView:document.body.dataset.view||wanted,leagueDepth:0},'',location.href);
 }
 function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
-  if((view==='admin'||view==='disponibilidad')&&!isAdmin())view=currentUser()?'cuenta':'acceso';
+  if(view==='disponibilidad')view=isAdmin()?'admin':'inicio';
+  if(view==='admin'&&!isAdmin())view=currentUser()?'cuenta':'acceso';
   rememberView(view);
   const current=document.body.dataset.view;
   if(!fromBack&&!fromPop&&current&&current!==view){
@@ -199,7 +200,6 @@ function navigate(view,{fromBack=false,fromPop=false,replaceHistory=false}={}){
   if(view==='jugador'&&activePlayerName)renderPlayerProfile(activePlayerName);
   if(view==='goleadores'||view==='asistencias'||view==='mvps'||view==='jugadores')renderRankings();
   if(view==='streaming')renderStreaming();
-  if(view==='disponibilidad')renderAvailability();
   if(view==='premios')renderIdeal();
   if(view==='directo')renderLive();
   if(view==='cuenta')renderAccountPanel();
@@ -349,23 +349,17 @@ function availabilityVoteLabel(opt){
   const date=new Date(`${opt.date}T00:00:00`),days=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
   return `${days[date.getDay()]} ${date.getDate()} · ${opt.time||''}`;
 }
-function availabilityStatus(matchId){
-  const av=availabilityData(matchId),confirmed=av.options.find(o=>o.id===av.confirmedOptionId);
-  if(confirmed)return `📅 ${availabilityOptionLabel(confirmed)}`;
-  return av.options.length?`${av.options.length} días para votar`:'Fecha por decidir';
-}
+function availabilityStatus(matchId){return 'Fecha por decidir'}
 function statusForFixture(f){const s=getStateFor(f.id);if(s.finished)return matchResultText(f,s);if(s.started)return `● EN JUEGO · ${s.homeScore}–${s.awayScore}`;return availabilityStatus(f.id)}
 function fixtureQuickActions(f,context='round'){
   const s=getStateFor(f.id),editable=canManageMatch(f.id),prefix=context==='home'?'home-':'';
   if(s.finished)return `<button class="ghost compact-btn" type="button" data-${prefix}acta="${f.id}">📋 Ver acta</button>`;
   if(s.started)return `<button class="${editable?'primary':'ghost'} compact-btn" type="button" data-${prefix}live="${f.id}">${editable?'🎛️ Gestionar partido':'🔴 Ver directo'}</button>`;
-  return `${isAdmin()?`<button class="ghost compact-btn" type="button" data-${prefix}availability="${f.id}">📅 Gestionar disponibilidad</button>`:''}${editable?`<button class="primary compact-btn" type="button" data-${prefix}start="${f.id}">⚽ Iniciar partido</button>`:''}`;
+  return editable?`<button class="primary compact-btn" type="button" data-${prefix}start="${f.id}">⚽ Iniciar partido</button>`:'';
 }
 function bindFixtureQuickActions(root=document){
   root.querySelectorAll('[data-acta],[data-live],[data-start]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openLiveMatch(btn.dataset.acta||btn.dataset.live||btn.dataset.start)}));
-  root.querySelectorAll('[data-availability]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openAvailability(btn.dataset.availability)}));
   root.querySelectorAll('[data-home-acta],[data-home-live],[data-home-start]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openLiveMatch(btn.dataset.homeActa||btn.dataset.homeLive||btn.dataset.homeStart)}));
-  root.querySelectorAll('[data-home-availability]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();openAvailability(btn.dataset.homeAvailability)}));
 }
 function renderRounds(){
   const rounds=roundNumbers();
@@ -580,22 +574,12 @@ function renderTeamProfile(key){
   $('#teamRecentMatches').innerHTML=played.length?played.map(f=>teamMatchHtml(f,key,true)).join(''):'<div class="empty-state">Todavía no ha jugado partidos.</div>';
   $('#teamUpcomingMatches').innerHTML=upcoming.length?upcoming.map(f=>teamMatchHtml(f,key,false)).join(''):'<div class="empty-state">No quedan partidos pendientes.</div>';
   $('#teamProfileRoster').innerHTML=t.players.map(([p,c])=>`<div class="player-row">${playerAvatarHtml(p)}<span>${playerProfileButton(p)}</span>${c?'<span class="captain" title="Capitán">C</span>':'<span></span>'}<span class="player-stat">⚽ ${stats[p]?.goals||0}</span><span class="player-stat">🅰️ ${stats[p]?.assists||0}</span><span class="player-stat">⭐ ${stats[p]?.mvps||0}</span></div>`).join('');
-  $$('#teamUpcomingMatches [data-team-match]').forEach(b=>b.addEventListener('click',()=>openAvailability(b.dataset.teamMatch)));
   $$('#teamRecentMatches [data-team-live]').forEach(b=>b.addEventListener('click',()=>openLiveMatch(b.dataset.teamLive)));
 }
-function teamMatchHtml(f,key,finished){const s=getStateFor(f.id),opponent=f.home===key?f.away:f.home,isHome=f.home===key,score=finished?(Number(s.homeScore)===Number(s.awayScore)&&s.shootoutEvents?.length?`${isHome?s.homeScore:s.awayScore}–${isHome?s.awayScore:s.homeScore}<small>${shootoutSummary(s,f)}</small>`:(isHome?`${s.homeScore}–${s.awayScore}`:`${s.awayScore}–${s.homeScore}`)):'VS';return `<article class="team-match-row"><img src="${teams[opponent].logo}" alt="" data-team-profile="${opponent}" class="team-profile-target"><div><strong>${teamProfileInline(opponent)}</strong><small>Jornada ${f.round} · ${finished?'Finalizado':availabilityStatus(f.id)}</small></div><b>${score}</b><button class="ghost compact-btn" type="button" ${finished?`data-team-live="${f.id}"`:`data-team-match="${f.id}"`}>${finished?'Ver acta':'Disponibilidad'}</button></article>`}
-
-function homeRoundPlayerStats(round){
-  const stats={};allPlayers.forEach(p=>stats[p.name]={name:p.name,team:p.team,key:p.key,goals:0,realGoals:0,assists:0,mvps:0});
-  fixtures.filter(f=>Number(f.round)===Number(round)).forEach(f=>{
-    const s=getStateFor(f.id);
-    (s.events||[]).forEach(e=>{
-      if(stats[e.scorer]){stats[e.scorer].goals+=Number(e.competitionValue ?? e.value ?? 1);stats[e.scorer].realGoals+=Number(e.realValue ?? 1)}
-      if(e.assist&&stats[e.assist])stats[e.assist].assists+=1;
-    });
-    if(s.mvp&&stats[s.mvp])stats[s.mvp].mvps+=1;
-  });
-  return Object.values(stats);
+function teamMatchHtml(f,key,finished){
+  const s=getStateFor(f.id),opponent=f.home===key?f.away:f.home,isHome=f.home===key,score=finished?(Number(s.homeScore)===Number(s.awayScore)&&s.shootoutEvents?.length?`${isHome?s.homeScore:s.awayScore}–${isHome?s.awayScore:s.homeScore}<small>${shootoutSummary(s,f)}</small>`:(isHome?`${s.homeScore}–${s.awayScore}`:`${s.awayScore}–${s.homeScore}`)):'VS';
+  const action=finished?`<button class="ghost compact-btn" type="button" data-team-live="${f.id}">Ver acta</button>`:'';
+  return `<article class="team-match-row"><img src="${teams[opponent].logo}" alt="" data-team-profile="${opponent}" class="team-profile-target"><div><strong>${teamProfileInline(opponent)}</strong><small>Jornada ${f.round} · ${finished?'Finalizado':'Fecha por decidir'}</small></div><b>${score}</b>${action}</article>`
 }
 function defaultHomeHighlightsRound(){
   const rounds=roundNumbers();
@@ -638,13 +622,13 @@ function renderNextMatchCard(){
   const f=nextPendingFixture(),btn=$('#startNextMatch'),refBtn=ensureNextMatchRefereeButton();
   if(!f){$('#nextRoundBadge').textContent='Temporada completada';$('#nextHomeName').textContent='—';$('#nextAwayName').textContent='—';[$('#nextHomeName'),$('#nextAwayName'),$('#nextHomeLogo'),$('#nextAwayLogo')].forEach(el=>{if(!el)return;delete el.dataset.teamProfile;el.classList.remove('team-profile-target');el.removeAttribute('role');el.removeAttribute('tabindex');el.removeAttribute('aria-label')});$('#nextHomeLogo').removeAttribute('src');$('#nextAwayLogo').removeAttribute('src');$('#nextMatchStatus').textContent='No quedan partidos pendientes';btn.disabled=true;refBtn.hidden=true;return}
   const state=getStateFor(f.id);
-  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#nextHomeLogo'),f.home);$('#nextAwayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#nextAwayLogo'),f.away);$('#nextHomeName').textContent=teams[f.home].name;markTeamProfileTarget($('#nextHomeName'),f.home);$('#nextAwayName').textContent=teams[f.away].name;markTeamProfileTarget($('#nextAwayName'),f.away);$('#nextMatchStatus').textContent=state.started?`● EN JUEGO · ${state.homeScore}–${state.awayScore}`:availabilityStatus(f.id);btn.hidden=!isAdmin();btn.disabled=!isAdmin();btn.dataset.match=f.id;btn.textContent='📅 Gestionar disponibilidad';
+  $('#nextRoundBadge').textContent=`Jornada ${f.round}`;$('#nextHomeLogo').src=teams[f.home].logo;markTeamProfileTarget($('#nextHomeLogo'),f.home);$('#nextAwayLogo').src=teams[f.away].logo;markTeamProfileTarget($('#nextAwayLogo'),f.away);$('#nextHomeName').textContent=teams[f.home].name;markTeamProfileTarget($('#nextHomeName'),f.home);$('#nextAwayName').textContent=teams[f.away].name;markTeamProfileTarget($('#nextAwayName'),f.away);$('#nextMatchStatus').textContent=state.started?`● EN JUEGO · ${state.homeScore}–${state.awayScore}`:'Fecha por decidir';btn.hidden=true;btn.disabled=true;
   refBtn.hidden=!canManageMatch(f.id);refBtn.dataset.match=f.id;refBtn.textContent=state.started?'🎛️ Gestionar partido':'⚽ Iniciar partido';
 }
 
 function populateMatchSelects(){
   const opts=fixtures.map(f=>`<option value="${f.id}">${fixtureLabel(f)}</option>`).join('');
-  $('#matchSelect').innerHTML=opts;$('#availabilityMatch').innerHTML=opts;$('#streamMatchSelect').innerHTML=opts;
+  $('#matchSelect').innerHTML=opts;$('#streamMatchSelect').innerHTML=opts;
   const rounds=roundNumbers();
   $('#idealRound').innerHTML=rounds.map(r=>`<option value="${r}">Jornada ${r}</option>`).join('');
 }
@@ -1086,9 +1070,9 @@ function renderAvailability(){
   const hint='Solo el administrador puede gestionar y marcar la disponibilidad de los jugadores.';
   $('#availabilitySummary').innerHTML=`<b>Participación</b><br>${responded} de ${totalPlayers} jugadores tienen disponibilidad registrada.<br><small>${escapeHtml(hint)}</small>`;
 }
-$('#availabilityMatch').addEventListener('change',renderAvailability);
-$('#saveAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Gestión disponible solo para administración.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
-$('#clearAvailabilityOptions').addEventListener('click',()=>{if(!isAdmin())return;if(!confirm('¿Borrar los días propuestos y todos los votos de este partido?'))return;saveAvailabilityData($('#availabilityMatch').value,defaultAvailability());$('#availabilityAdminMsg').textContent='Días borrados.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
+$('#availabilityMatch')?.addEventListener('change',renderAvailability);
+$('#saveAvailabilityOptions')?.addEventListener('click',()=>{if(!isAdmin())return;const matchId=$('#availabilityMatch').value,current=availabilityData(matchId),items=readAvailabilityEditors(),valid=items.filter(Boolean);if(items.some(x=>x?.invalid)||valid.length<1){$('#availabilityAdminMsg').textContent='Elige al menos una fecha y una hora válidas.';return}const labels=valid.map(x=>`${x.date} ${x.time}`);if(new Set(labels).size!==labels.length){$('#availabilityAdminMsg').textContent='Las fechas y horas propuestas deben ser diferentes.';return}current.options=valid;current.confirmedOptionId='';current.votes={};current.responded={};saveAvailabilityData(matchId,current);$('#availabilityAdminMsg').textContent=`${valid.length===1?'Fecha guardada':`${valid.length} fechas guardadas`}. Gestión disponible solo para administración.`;renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
+$('#clearAvailabilityOptions')?.addEventListener('click',()=>{if(!isAdmin())return;if(!confirm('¿Borrar los días propuestos y todos los votos de este partido?'))return;saveAvailabilityData($('#availabilityMatch').value,defaultAvailability());$('#availabilityAdminMsg').textContent='Días borrados.';renderAvailability();renderRounds();renderHomeDashboard();renderLive()});
 
 function normalizeIdealSelection(saved){
   const empty=Object.fromEntries(IDEAL_POSITIONS.map(pos=>[pos.key,'']));
@@ -1145,9 +1129,8 @@ function renderPlayerProfile(name){
   $('#playerProfileGoals').textContent=st.goals;$('#playerProfileAssists').textContent=st.assists;$('#playerProfileMvps').textContent=st.mvps;
   $('#playerPhotoControls').hidden=!isAdmin();$('#removePlayerPhoto').disabled=!photo;const photoHelp=$('#playerPhotoHelp');if(photoHelp)photoHelp.textContent='La foto del propio jugador se cambia desde Cuenta. El administrador puede corregir cualquier foto aquí.';
   const pending=fixtures.filter(f=>(f.home===meta.key||f.away===meta.key)&&!getStateFor(f.id).finished).sort((a,b)=>Number(a.round)-Number(b.round))[0];
-  if(pending){
-    const opp=pending.home===meta.key?pending.away:pending.home,av=availabilityData(pending.id),confirmed=av.options.find(o=>o.id===av.confirmedOptionId);
-    $('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt="" data-team-profile="${opp}" class="team-profile-target"><div><strong>${teamProfileInline(meta.key)} vs ${teamProfileInline(opp)}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>${confirmed?availabilityOptionLabel(confirmed):'Fecha por decidir'}</strong><small>La fecha y disponibilidad las gestiona la administración.</small></div></article>`;
+  if(pending){    const opp=pending.home===meta.key?pending.away:pending.home;
+    $('#playerPendingMatch').innerHTML=`<article class="player-pending-card"><div class="pending-opponent"><img src="${teams[opp].logo}" alt="" data-team-profile="${opp}" class="team-profile-target"><div><strong>${teamProfileInline(meta.key)} vs ${teamProfileInline(opp)}</strong><span>Jornada ${pending.round}</span></div></div><div class="pending-status"><strong>Fecha por decidir</strong><small>La asistencia se confirma desde el acta del partido.</small></div></article>`;
   }else{$('#playerPendingMatch').innerHTML='<div class="empty-state">No quedan partidos pendientes para este jugador.</div>'}
   const activity=[];
   fixtures.forEach(f=>{const state=getStateFor(f.id),relevant=(state.events||[]).filter(e=>e.scorer===name||e.assist===name),isMvp=state.mvp===name;if(!relevant.length&&!isMvp)return;const details=[];relevant.forEach(e=>{const score=e.scoreAfter?` · ${e.scoreAfter}`:'';if(e.scorer===name)details.push(`<span>⚽ Gol${score} · ${e.half}ª parte · ${e.minute}'${Number(e.competitionValue ?? e.value ?? 1)===2?' · ⚡ +2 goles de competición':''}</span>`);if(e.assist===name)details.push(`<span>🅰️ Asistencia a ${playerProfileButton(e.scorer)}${score} · ${e.half}ª parte · ${e.minute}'</span>`)});if(isMvp)details.push('<span>⭐ MVP del partido</span>');activity.push(`<article class="player-history-item"><div class="history-match-head"><div><strong>Jornada ${f.round}</strong><span>${teamProfileInline(f.home)} ${state.finished?state.homeScore:'–'} ${state.finished?state.awayScore:'–'} ${teamProfileInline(f.away)}</span></div><span class="history-status">${state.finished?'Finalizado':statusForFixture(f)}</span></div><div class="history-events">${details.join('')}</div></article>`)});
@@ -1200,11 +1183,11 @@ $('#playerPhotoInput').addEventListener('change',async e=>{const file=e.target.f
 $('#removePlayerPhoto').addEventListener('click',async()=>{if(!activePlayerName||!isAdmin())return;try{await removePersistentPlayerPhoto(activePlayerName)}catch(err){console.error(err);alert(err?.message||'No se pudo quitar la foto.')}});
 
 $$('[data-classification-tab]').forEach(btn=>btn.addEventListener('click',()=>{const tab=btn.dataset.classificationTab;$$('[data-classification-tab]').forEach(b=>b.classList.toggle('active',b===btn));$('#classificationGroupPanel').hidden=tab!=='group';$('#classificationKnockoutPanel').hidden=tab!=='knockout'}));
-$('#startNextMatch').addEventListener('click',()=>{const id=$('#startNextMatch').dataset.match;if(!id)return;openAvailability(id)});
+$('#startNextMatch')?.addEventListener('click',()=>{});
 
 function teamOptions(selected){return Object.entries(teams).map(([key,t])=>`<option value="${key}" ${selected===key?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}
-function fixtureHasData(id){const s=getStateFor(id),av=availabilityData(id),stream=streamData(id);return !!(s.finished||s.events?.length||s.mvp||av.options?.length||Object.keys(av.votes||{}).length||stream.liveUrl||stream.recordingUrl)}
-function clearFixtureLinkedData(id){store.remove(`match:${id}`);store.remove(`availability:${id}`);store.remove(`stream:${id}`);const refs=refereeAssignments();if(refs[id]){delete refs[id];store.set('league:refereeAssignments',refs)}}
+function fixtureHasData(id){const s=getStateFor(id),stream=streamData(id);return !!(s.finished||s.events?.length||s.mvp||stream.liveUrl||stream.recordingUrl)}
+function clearFixtureLinkedData(id){store.remove(`match:${id}`);store.remove(`stream:${id}`);const refs=refereeAssignments();if(refs[id]){delete refs[id];store.set('league:refereeAssignments',refs)}}
 function refreshAfterFixtureEdit(preferredId=''){
   saveFixtures();
   populateMatchSelects();
@@ -1212,7 +1195,6 @@ function refreshAfterFixtureEdit(preferredId=''){
   const id=fixtures.some(f=>f.id===preferredId)?preferredId:fixtures[0].id;
   live.matchId=id;live.half=1;live.remaining=1200;stopTimer();
   if($('#matchSelect'))$('#matchSelect').value=id;
-  if($('#availabilityMatch'))$('#availabilityMatch').value=id;
   if($('#streamMatchSelect'))$('#streamMatchSelect').value=id;
   renderRounds();renderHomeDashboard();renderStandings();renderLive();renderStreaming();renderAvailability();renderIdeal();renderAdmin();
 }
@@ -1227,7 +1209,7 @@ function renderFixtureEditor(){
     if(home===away){alert('El equipo local y visitante no pueden ser el mismo.');return}
     const teamsChanged=f.home!==home||f.away!==away;
     if(teamsChanged&&fixtureHasData(id)){
-      const ok=confirm('Este partido ya tiene datos asociados (resultado, eventos, disponibilidad o vídeo). Si cambias los equipos, esos datos se borrarán para evitar mezclar estadísticas. ¿Continuar?');
+      const ok=confirm('Este partido ya tiene datos asociados (resultado, eventos o vídeo). Si cambias los equipos, esos datos se borrarán para evitar mezclar estadísticas. ¿Continuar?');
       if(!ok)return;clearFixtureLinkedData(id);
     }
     f.round=round;f.home=home;f.away=away;delete f.rest;
@@ -1235,7 +1217,7 @@ function renderFixtureEditor(){
   }));
   $$('#fixtureEditor [data-delete-fixture]').forEach(btn=>btn.addEventListener('click',()=>{
     const row=btn.closest('[data-fixture-id]'),id=row.dataset.fixtureId,f=fixtures.find(x=>x.id===id);if(!f)return;
-    const warning=fixtureHasData(id)?' También se borrarán sus datos asociados (resultado, disponibilidad y vídeo).':'';
+    const warning=fixtureHasData(id)?' También se borrarán sus datos asociados (resultado y vídeo).':'';
     if(!confirm(`¿Eliminar ${teams[f.home].name} vs ${teams[f.away].name} de la Jornada ${f.round}?${warning}`))return;
     if(fixtureHasData(id))clearFixtureLinkedData(id);
     fixtures=fixtures.filter(x=>x.id!==id);refreshAfterFixtureEdit();
@@ -1449,13 +1431,11 @@ loadCurrentUserFromSupabase();
 // v6 · configuración local de recordatorios (el envío real se conectará al backend al publicar)
 function reminderSettings(){return store.get('league:reminders',{availabilityEnabled:true,availabilityCadence:'24',matchEnabled:true,match24:true,match2:true})}
 function renderReminderSettings(){
-  const a=$('#availabilityReminderEnabled'); if(!a)return;
   const s=reminderSettings();
-  a.checked=!!s.availabilityEnabled;
-  $('#availabilityReminderCadence').value=String(s.availabilityCadence||'24');
-  $('#matchReminderEnabled').checked=!!s.matchEnabled;
-  $('#matchReminder24').checked=s.match24!==false;
-  $('#matchReminder2').checked=s.match2!==false;
+  const m=$('#matchReminderEnabled'); if(!m)return;
+  m.checked=!!s.matchEnabled;
+  $('#matchReminder24').checked=!!s.match24;
+  $('#matchReminder2').checked=!!s.match2;
 }
 $('#saveReminderSettings')?.addEventListener('click',()=>{
   if(!isAdmin()){alert('Solo el administrador puede configurar los recordatorios.');return}
