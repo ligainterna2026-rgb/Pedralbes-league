@@ -1250,11 +1250,34 @@ function renderNews(){
     </section>`;
   content.querySelectorAll('[data-news-image]').forEach(btn=>btn.addEventListener('click',()=>openNewsImage(btn.dataset.newsImage)));
 }
-function openNewsImage(src){const d=$('#newsDialog'),img=$('#newsDialogImage');if(!d||!img)return;img.src=src;img.onerror=()=>{img.alt='No se ha podido cargar esta página del periódico.'};d.showModal()}
+function closeNewsImage(){
+  const d=$('#newsDialog'),img=$('#newsDialogImage');
+  if(!d)return;
+  try{if(typeof d.close==='function'&&d.open)d.close()}catch{}
+  d.classList.remove('fallback-open');
+  d.removeAttribute('open');
+  if(img){img.removeAttribute('src');img.alt='Página del periódico de la liga';}
+}
+function openNewsImage(src){
+  const d=$('#newsDialog'),img=$('#newsDialogImage');
+  if(!d||!img)return;
+  img.alt='Página del periódico de la liga';
+  img.onerror=()=>{img.alt='No se ha podido cargar esta página del periódico.'};
+  img.src=src;
+  try{
+    if(typeof d.showModal==='function')d.showModal();
+    else{d.setAttribute('open','open');d.classList.add('fallback-open');}
+  }catch(_err){
+    d.setAttribute('open','open');
+    d.classList.add('fallback-open');
+  }
+}
 $('#newsRound')?.addEventListener('change',()=>{$('#newsMatch').value='';renderNews()});
 $('#newsMatch')?.addEventListener('change',renderNews);
-$('#closeNewsDialog')?.addEventListener('click',()=>$('#newsDialog')?.close());
-$('#newsDialog')?.addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.close()});
+['click','pointerup','touchend'].forEach(evt=>$('#closeNewsDialog')?.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();closeNewsImage();},{passive:false}));
+$('#newsDialogImage')?.addEventListener('click',e=>e.stopPropagation());
+$('#newsDialog')?.addEventListener('click',e=>{if(e.target===e.currentTarget)closeNewsImage()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#newsDialog')?.open)closeNewsImage()});
 
 async function hydrateIdealFiveFromSupabase(force=false){
   if(idealRemoteLoaded&&!force)return;
@@ -1331,6 +1354,149 @@ $('#saveIdeal').addEventListener('click',async()=>{
   catch(err){console.error(err);$('#idealSaved').textContent='No se pudo sincronizar el 5 ideal. Inténtalo de nuevo.'}
   finally{btn.disabled=!isAdmin()}
 });
+
+function fillRoundRect(ctx,x,y,w,h,r,fill){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  ctx.fillStyle=fill;ctx.fill();
+}
+function strokeRoundRect(ctx,x,y,w,h,r,stroke,lineWidth=2){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke();
+}
+function clipCircle(ctx,x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.closePath();ctx.clip();}
+function drawCircleAvatar(ctx,player,x,y,size){
+  const photo=playerPhoto(player.name);
+  const initials=player.name.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
+  ctx.save();
+  ctx.beginPath();ctx.arc(x,y,size/2,0,Math.PI*2);ctx.closePath();
+  ctx.fillStyle='rgba(255,255,255,.12)';ctx.fill();
+  if(photo&&imageCache.has(photo)){
+    ctx.save();clipCircle(ctx,x,y,size/2);ctx.drawImage(imageCache.get(photo),x-size/2,y-size/2,size,size);ctx.restore();
+  }else{
+    ctx.fillStyle='#8a5c16';ctx.beginPath();ctx.arc(x,y,size/2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 30px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(initials,x,y+2);
+  }
+  ctx.lineWidth=4;ctx.strokeStyle='rgba(255,255,255,.88)';ctx.stroke();
+  ctx.restore();
+}
+async function loadGraphicImage(src){
+  return new Promise(resolve=>{
+    if(!src)return resolve(null);
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>resolve(img);
+    img.onerror=()=>resolve(null);
+    img.src=src;
+  });
+}
+let imageCache=new Map();
+async function buildIdealShareCanvas(){
+  const round=Number($('#idealRound')?.value||0);
+  const selection=idealSelectionFromForm();
+  const chosen=IDEAL_POSITIONS.map(pos=>selection[pos.key]).filter(Boolean);
+  if(chosen.length!==5)throw new Error('Completa el 5 ideal antes de exportarlo.');
+  const players=IDEAL_POSITIONS.map(pos=>{
+    const name=selection[pos.key]||'';
+    const meta=allPlayers.find(p=>p.name===name);
+    const team=meta?teams[meta.key]:null;
+    const stats=name?playerRoundStats(name,round):{goals:0,assists:0};
+    return {pos,name,meta,team,stats};
+  });
+  imageCache=new Map();
+  const sources=[...new Set(players.flatMap(p=>[p.team?.logo,playerPhoto(p.name)]).filter(Boolean))];
+  await Promise.all(sources.map(async src=>{const img=await loadGraphicImage(src);if(img)imageCache.set(src,img);}));
+
+  const canvas=document.createElement('canvas');
+  canvas.width=1080;canvas.height=1350;
+  const ctx=canvas.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,0,1350);grad.addColorStop(0,'#190d10');grad.addColorStop(.45,'#132517');grad.addColorStop(1,'#08110c');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Header
+  ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(0,0,1080,150);
+  ctx.fillStyle='#f5c76f';ctx.font='700 28px Arial';ctx.textAlign='left';ctx.fillText('LIGA INTERNA PEDRALBES',70,58);
+  ctx.fillStyle='#fff';ctx.font='900 74px Arial';ctx.fillText('5 IDEAL',70,118);
+  ctx.textAlign='right';ctx.fillStyle='#f5c76f';ctx.font='700 34px Arial';ctx.fillText(`JORNADA ${round}`,1000,74);
+  ctx.fillStyle='rgba(255,255,255,.82)';ctx.font='500 24px Arial';ctx.fillText('Formación oficial para compartir',1000,112);
+
+  // Pitch area
+  const pitch={x:70,y:180,w:940,h:1090};
+  fillRoundRect(ctx,pitch.x,pitch.y,pitch.w,pitch.h,34,'rgba(12,40,20,.62)');
+  strokeRoundRect(ctx,pitch.x,pitch.y,pitch.w,pitch.h,34,'rgba(255,255,255,.28)',3);
+  strokeRoundRect(ctx,pitch.x+24,pitch.y+24,pitch.w-48,pitch.h-48,18,'rgba(255,255,255,.72)',4);
+  ctx.beginPath();ctx.moveTo(540,pitch.y+24);ctx.lineTo(540,pitch.y+pitch.h-24);ctx.strokeStyle='rgba(255,255,255,.72)';ctx.lineWidth=4;ctx.stroke();
+  ctx.beginPath();ctx.arc(540,725,95,0,Math.PI*2);ctx.stroke();
+  strokeRoundRect(ctx,390,205,300,110,0,'rgba(255,255,255,.72)',4);
+  strokeRoundRect(ctx,390,1135,300,110,0,'rgba(255,255,255,.72)',4);
+  ctx.clearRect(394,209,292,102); ctx.clearRect(394,1139,292,102);
+  // redraw penalty arcs nicer
+  ctx.beginPath();ctx.moveTo(390,315);ctx.quadraticCurveTo(540,415,690,315);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(390,1135);ctx.quadraticCurveTo(540,1035,690,1135);ctx.stroke();
+  // goals
+  ctx.strokeRect(500,180,80,18);ctx.strokeRect(500,1252,80,18);
+
+  const positions={
+    pivot:{x:540,y:345},
+    alaLeft:{x:245,y:690},
+    alaRight:{x:835,y:690},
+    cierre:{x:540,y:935},
+    goalkeeper:{x:540,y:1145}
+  };
+  players.forEach(player=>{
+    const c=positions[player.pos.key]; if(!c)return;
+    const cardW=250, cardH=186, cardX=c.x-cardW/2, cardY=c.y-cardH/2;
+    fillRoundRect(ctx,cardX,cardY,cardW,cardH,26,'rgba(8,16,10,.45)');
+    strokeRoundRect(ctx,cardX,cardY,cardW,cardH,26,'rgba(255,255,255,.24)',2);
+    ctx.fillStyle='rgba(245,199,111,.16)';fillRoundRect(ctx,cardX+16,cardY+16,90,26,13,'rgba(245,199,111,.16)');
+    ctx.fillStyle='#f5c76f';ctx.font='700 15px Arial';ctx.textAlign='left';ctx.fillText(player.pos.label.toUpperCase(),cardX+24,cardY+34);
+    if(player.team?.logo&&imageCache.has(player.team.logo))ctx.drawImage(imageCache.get(player.team.logo),cardX+cardW-54,cardY+14,34,34);
+    drawCircleAvatar(ctx,player,c.x,cardY+86,82);
+    ctx.fillStyle='#fff';ctx.font='700 23px Arial';ctx.textAlign='center';ctx.fillText(player.name||'Sin asignar',c.x,cardY+144);
+    ctx.fillStyle='rgba(255,255,255,.8)';ctx.font='500 16px Arial';ctx.fillText(player.meta?.team||'',c.x,cardY+166);
+    fillRoundRect(ctx,c.x-76,cardY+176,64,28,14,'rgba(255,255,255,.08)');
+    fillRoundRect(ctx,c.x+12,cardY+176,64,28,14,'rgba(255,255,255,.08)');
+    ctx.fillStyle='#fff';ctx.font='700 15px Arial';ctx.fillText(`G ${player.stats.goals}`,c.x-44,cardY+195);
+    ctx.fillText(`A ${player.stats.assists}`,c.x+44,cardY+195);
+  });
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='500 20px Arial';ctx.fillText('Exportado desde la web oficial de la Liga Interna Pedralbes',540,1315);
+  return canvas;
+}
+function canvasToBlob(canvas){return new Promise(resolve=>canvas.toBlob(resolve,'image/png'));}
+async function shareIdealAsImage(){
+  const btn=$('#shareIdeal'),msg=$('#idealSaved');
+  if(btn)btn.disabled=true;
+  if(msg)msg.textContent='Preparando imagen del 5 ideal…';
+  try{
+    const round=Number($('#idealRound')?.value||0);
+    const canvas=await buildIdealShareCanvas();
+    const blob=await canvasToBlob(canvas);
+    if(!blob)throw new Error('No se pudo generar la imagen.');
+    const file=new File([blob],`5-ideal-jornada-${round}.png`,{type:'image/png'});
+    const canNativeShare=!!(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]}));
+    if(canNativeShare){
+      await navigator.share({files:[file],title:`5 ideal · Jornada ${round}`,text:`5 ideal de la Jornada ${round} · Liga Interna Pedralbes`});
+      if(msg)msg.textContent='✓ Imagen lista y compartida.';
+      return;
+    }
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=`5-ideal-jornada-${round}.png`;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    if(msg)msg.textContent='✓ Imagen descargada.';
+  }catch(err){
+    console.error(err);
+    if(msg)msg.textContent=err?.message||'No se pudo exportar la imagen del 5 ideal.';
+  }finally{if(btn)btn.disabled=false;}
+}
+$('#shareIdeal')?.addEventListener('click',shareIdealAsImage);
 
 function renderPlayerProfile(name){
   activePlayerName=name;const meta=allPlayers.find(p=>p.name===name);if(!meta)return;const st=playerStats()[name],team=teams[meta.key],photo=playerPhoto(name);
