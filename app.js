@@ -565,9 +565,13 @@ function playerRankingStats(){
   return rows;
 }
 function playerRoundStats(name,round){
-  let goals=0,assists=0;
-  fixtures.filter(f=>Number(f.round)===Number(round)).forEach(f=>{const state=getStateFor(f.id);(state.events||[]).forEach(e=>{if(e.scorer===name)goals+=1;if(e.assist===name)assists+=1})});
-  return {goals,assists};
+  let goals=0,assists=0,mvps=0;
+  fixtures.filter(f=>Number(f.round)===Number(round)).forEach(f=>{
+    const state=getStateFor(f.id);
+    (state.events||[]).forEach(e=>{if(e.scorer===name)goals+=1;if(e.assist===name)assists+=1});
+    if(state.mvp===name)mvps+=1;
+  });
+  return {goals,assists,mvps};
 }
 function sortedBy(field){return Object.values(playerStats()).sort((a,b)=>b[field]-a[field]||a.name.localeCompare(b.name,'es'))}
 
@@ -1424,13 +1428,16 @@ function idealSelectionFromForm(){
   return data;
 }
 function idealPlayerCardHtml(pos,playerName,editable=isAdmin()){
-  const meta=playerName?allPlayers.find(p=>p.name===playerName):null,team=meta?teams[meta.key]:null,round=Number($('#idealRound')?.value||0),roundStats=playerName?playerRoundStats(playerName,round):{goals:0,assists:0};
-  const selectHtml=editable?`<div class="ideal-picker"><label for="ideal-${pos.key}">Jugador</label><select id="ideal-${pos.key}" data-position="${pos.key}"><option value="">Selecciona jugador</option>${allPlayers.map(p=>`<option value="${escapeHtml(p.name)}" ${playerName===p.name?'selected':''}>${escapeHtml(p.name)} · ${p.team}</option>`).join('')}</select></div>`:'';
+  const meta=playerName?allPlayers.find(p=>p.name===playerName):null;
+  const team=meta?teams[meta.key]:null;
+  const round=Number($('#idealRound')?.value||0);
+  const roundStats=playerName?playerRoundStats(playerName,round):{goals:0,assists:0,mvps:0};
+  const selectHtml=editable?`<div class="ideal-picker"><select aria-label="Elegir ${pos.label}" id="ideal-${pos.key}" data-position="${pos.key}"><option value="">Selecciona jugador</option>${allPlayers.map(p=>`<option value="${escapeHtml(p.name)}" ${playerName===p.name?'selected':''}>${escapeHtml(p.name)} · ${p.team}</option>`).join('')}</select></div>`:'';
   if(playerName){
-    return `<article class="ideal-player-card filled ${pos.className}"><div class="ideal-card-top"><span class="ideal-role-tag">${pos.label}</span>${team?`<img class="ideal-team-logo team-profile-target" src="${team.logo}" alt="${escapeHtml(team.name)}" data-team-profile="${meta.key}">`:''}</div>${playerAvatarHtml(playerName,'ideal-avatar')}
-      <div class="ideal-player-copy"><strong>${playerProfileButton(playerName)}</strong><small>${meta?teamProfileInline(meta.key,meta.team):''}</small><div style="display:flex;gap:10px;justify-content:center;margin-top:5px;font-size:.82rem;font-weight:800"><span>⚽ ${roundStats.goals}</span><span>🅰️ ${roundStats.assists}</span></div></div>${selectHtml}</article>`;
+    const mvpHtml=roundStats.mvps?`<span class="toty-stat mvp">⭐ ${roundStats.mvps}</span>`:'';
+    return `<article class="ideal-player-card toty-card filled ${pos.className}"><div class="toty-shell"><div class="toty-crown">♛</div><span class="ideal-role-tag">${pos.label}</span>${team?`<img class="ideal-team-logo team-profile-target" src="${team.logo}" alt="${escapeHtml(team.name)}" data-team-profile="${meta.key}">`:''}<div class="toty-photo-wrap">${playerAvatarHtml(playerName,'ideal-avatar')}</div><div class="ideal-player-copy"><strong>${playerProfileButton(playerName)}</strong><small>${escapeHtml(meta?.team||'')}</small><div class="toty-round-stats"><span class="toty-stat">⚽ ${roundStats.goals}</span><span class="toty-stat">🅰️ ${roundStats.assists}</span>${mvpHtml}</div></div></div>${selectHtml}</article>`;
   }
-  return `<article class="ideal-player-card empty ${pos.className}"><div class="ideal-card-top"><span class="ideal-role-tag">${pos.label}</span></div><span class="ideal-empty-avatar">${pos.short}</span><div class="ideal-player-copy"><strong>Sin asignar</strong><small>Elige un jugador</small></div>${selectHtml}</article>`;
+  return `<article class="ideal-player-card toty-card empty ${pos.className}"><div class="toty-shell"><div class="toty-crown">♛</div><span class="ideal-role-tag">${pos.label}</span><span class="ideal-empty-avatar">${pos.short}</span><div class="ideal-player-copy"><strong>Sin asignar</strong><small>Elige un jugador</small></div></div>${selectHtml}</article>`;
 }
 function updateIdealPreview(selection=idealSelectionFromForm()){
   const pitch=$('#idealPitch');
@@ -1557,8 +1564,8 @@ async function buildIdealShareCanvas(){
   players.forEach(player=>{
     const c=positions[player.pos.key]; if(!c)return;
     const cardW=250, cardH=186, cardX=c.x-cardW/2, cardY=c.y-cardH/2;
-    fillRoundRect(ctx,cardX,cardY,cardW,cardH,26,'rgba(8,16,10,.45)');
-    strokeRoundRect(ctx,cardX,cardY,cardW,cardH,26,'rgba(255,255,255,.24)',2);
+    fillRoundRect(ctx,cardX,cardY,cardW,cardH,26,'#071f63');
+    strokeRoundRect(ctx,cardX,cardY,cardW,cardH,26,'#f2c766',5);
     ctx.fillStyle='rgba(245,199,111,.16)';fillRoundRect(ctx,cardX+16,cardY+16,90,26,13,'rgba(245,199,111,.16)');
     ctx.fillStyle='#f5c76f';ctx.font='700 15px Arial';ctx.textAlign='left';ctx.fillText(player.pos.label.toUpperCase(),cardX+24,cardY+34);
     if(player.team?.logo&&imageCache.has(player.team.logo))ctx.drawImage(imageCache.get(player.team.logo),cardX+cardW-54,cardY+14,34,34);
