@@ -25,7 +25,7 @@ function withTimeout(promise, ms=10000, label='La operación'){
 const LEAGUE_EMAIL = 'ligainterna2026@gmail.com';
 
 const teams = {
-  aston:{name:'Aston Birra F.C.',logo:'assets/aston-birra.jpeg',players:[['Nico',true],['Joaquin',false],['José',false],['Ambrosio',false],['Álvaro',false],['Diego',false],['Dibu',false]]},
+  aston:{name:'Aston Birra F.C.',logo:'assets/aston-birra.jpeg',players:[['Nico',true],['Joaquin',false],['José',false],['Ambrosio',false],['Álvaro',false],['Diego',false],['Dibu',false],['Mateo Lopez',false]]},
   borrachia:{name:'Borrachia Dortmund',logo:'assets/borrachia-dortmund.jpeg',players:[['Dani Piqué',true],['Cruz',false],['Carlos Martínez',false],['Jaume Serra',false],['Joan Nafria',false],['Tomas Colomina',false],['Hugo',false]]},
   celta:{name:'Celta de Vino',logo:'assets/celta-de-vino.jpeg',players:[['Guillem',true],['Paupu',false],['Joan Bosch',false],['Pol Cons',false],['Marc Escofet',false],['Juan',false],['Samuel',false]]},
   fener:{name:'Fenerbahçupito',logo:'assets/fenerbahcupito.jpeg',players:[['Arnau Portavella',true],['Victor',false],['Rafa',false],['Mito',false],['Machuca',false],['Linguini',false],['Xavier Bautista',false],['Joan Tortosa',false]]},
