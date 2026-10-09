@@ -88,7 +88,7 @@ const allPlayers = Object.entries(teams).flatMap(([key,t])=>t.players.map(([name
 const IDEAL_POSITIONS=[{key:'goalkeeper',label:'Portero',short:'POR',className:'goalkeeper'},{key:'cierre',label:'Cierre',short:'CIE',className:'cierre'},{key:'alaLeft',label:'Ala izquierda',short:'ALA',className:'ala-left'},{key:'alaRight',label:'Ala derecha',short:'ALA',className:'ala-right'},{key:'pivot',label:'Pivot',short:'PIV',className:'pivot'}];
 let idealRemoteLoaded=false;
 const NEWS_MATCHES=[{
-  id:'j1-ordago-fener',round:1,fixtureId:'m2',home:'ordago',away:'fener',displayHome:'Fenerbahçupito',displayAway:'Ordago FC',score:'13–7',
+  id:'j1-ordago-fener',round:1,fixtureId:'m2',home:'fener',away:'ordago',displayHome:'Fenerbahçupito',displayAway:'Ordago FC',score:'13–7',
   headline:'Victoria contundente de Fenerbahçupito',
   summary:'El primer periódico de la liga repasa el estreno entre Ordago FC y Fenerbahçupito: resultado, MVP, declaraciones, previa y curiosidades.',
   pages:[
@@ -100,6 +100,21 @@ const NEWS_MATCHES=[{
     {image:'assets/noticias/j1-ordago-fener-06-mas.png',tag:'MÁS',title:'Voces antes del partido',text:'Entrevistas y declaraciones previas desde Pedralbes.'},
     {image:'assets/noticias/j1-ordago-fener-07-curiosidades-victor.png',tag:'CURIOSIDADES',title:'Lo que dejó el partido',text:'La cara más informal y humorística de la jornada.'},
     {image:'assets/noticias/j1-ordago-fener-08-curiosidades-pau.png',tag:'CURIOSIDADES',title:'La opinión de Pau Puig',text:'Pronósticos y comentarios sobre la liga, en tono humorístico.'}
+  ]
+},{
+  id:'j1-celta-borrachia',round:1,fixtureId:'m1',home:'celta',away:'borrachia',displayHome:'Celta de Vino',displayAway:'Borrachia Dortmund',score:'10–3',
+  headline:'Celta de Vino atropella a Borrachia Dortmund',
+  summary:'El periódico del segundo partido de la Jornada 1: goleada del Celta, MVP de Guillem, declaraciones post partido, previa y las curiosidades que dejó el encuentro.',
+  pages:[
+    {image:'assets/noticias/j1-celta-borrachia-01-full-time.png',tag:'FULL TIME',title:'Celta de Vino 10–3 Borrachia Dortmund',text:'Resultado final, goleadores y resumen del encuentro.'},
+    {image:'assets/noticias/j1-celta-borrachia-02-mvp.png',tag:'MVP',title:'Guillem, MVP del partido',text:'Goles, creación de juego y una actuación decisiva.'},
+    {image:'assets/noticias/j1-celta-borrachia-03-joan-postgame.png',tag:'POST GAME',title:'Joan habla después de su gran partido',text:'El jugador del Celta destaca el esfuerzo colectivo.'},
+    {image:'assets/noticias/j1-celta-borrachia-04-juan-previa.png',tag:'MÁS',title:'Juan, antes del encuentro',text:'La previa y su pronóstico antes de comenzar el partido.'},
+    {image:'assets/noticias/j1-celta-borrachia-05-curiosidades-hugo.png',tag:'CURIOSIDADES',title:'Una entrevista con sorpresa',text:'Uno de los momentos más inesperados y humorísticos de la jornada.'},
+    {image:'assets/noticias/j1-celta-borrachia-06-curiosidades-tension.png',tag:'CURIOSIDADES',title:'Tensión durante el encuentro',text:'La rivalidad entre Dani Piqué y Juan dejó uno de los momentos del partido.'},
+    {image:'assets/noticias/j1-celta-borrachia-07-postgame-resumen.png',tag:'POST GAME',title:'El Celta de Vino se impone con claridad',text:'La goleada y las primeras reacciones después del encuentro.'},
+    {image:'assets/noticias/j1-celta-borrachia-08-hugo.png',tag:'POST GAME',title:'Hugo analiza el partido',text:'El jugador de Borrachia reconoce que el equipo puede mejorar.'},
+    {image:'assets/noticias/j1-celta-borrachia-09-miguel.png',tag:'POST GAME',title:'Miguel Cruz deja sus sensaciones',text:'Autocrítica tras el partido y mensaje para el equipo.'}
   ]
 }];
 
@@ -1268,9 +1283,9 @@ function renderNews(){
   const main=selected.pages[0],secondary=selected.pages[1];
   content.innerHTML=`
     <section class="news-score-strip">
-      <div class="news-team"><img src="${teams.fener.logo}" alt=""><strong>Fenerbahçupito</strong></div>
+      <div class="news-team"><img src="${teams[selected.home]?.logo||''}" alt=""><strong>${escapeHtml(selected.displayHome||teams[selected.home]?.name||'')}</strong></div>
       <div class="news-score"><span>JORNADA ${selected.round}</span><strong>${selected.score}</strong><small>FINAL</small></div>
-      <div class="news-team"><img src="${teams.ordago.logo}" alt=""><strong>Ordago FC</strong></div>
+      <div class="news-team"><img src="${teams[selected.away]?.logo||''}" alt=""><strong>${escapeHtml(selected.displayAway||teams[selected.away]?.name||'')}</strong></div>
     </section>
     <section class="news-feature-grid">
       <button class="news-feature-main" type="button" data-news-index="0">
